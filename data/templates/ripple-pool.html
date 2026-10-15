@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solenne — Ripple Pool</title>
+<!--
+  Customise: edit the colour tokens in :root. The WebGL pool reads --tile,
+  --tile-2, --grout, --band, --deep and --sun at startup, so the water always
+  matches the page. Ripple strength, damping, rain, refraction and simulation
+  resolution live in CONFIG at the top of the script. Treatments, rooms and
+  booking are plain HTML.
+-->
+<style>
+  :root {
+    --tile: #6fd3dc;      /* main pool tile */
+    --tile-2: #3fb2c6;    /* tile variation */
+    --grout: #e6f7f4;     /* grout lines */
+    --band: #0e4f74;      /* lane stripe + accent tiles */
+    --deep: #05303f;      /* water depth tint */
+    --sun: #fff4d6;       /* caustics + highlights */
+    --bg: #f5f1ea;        /* page stone */
+    --bg-2: #ebe4d8;
+    --ink: #13262c;
+    --muted: rgb(19 38 44 / 0.64);
+    --line: rgb(19 38 44 / 0.12);
+    --accent: #0f6f80;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.55; overflow-x: clip; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1180px, 100% - 32px); margin-inline: auto; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: 999px; border: 0; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; white-space: nowrap; transition: transform .2s, background .2s, box-shadow .2s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.light { background: #fff; color: var(--ink); box-shadow: 0 12px 30px -12px rgb(0 30 40 / .5); }
+  .btn.clear { background: rgb(255 255 255 / .12); color: #fff; border: 1px solid rgb(255 255 255 / .35); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .btn.clear:hover { background: rgb(255 255 255 / .22); }
+  .btn.dark { background: var(--ink); color: #fff; }
+  .eyebrow, .wrap p.eyebrow { font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(32px, 4.8vw, 54px); line-height: 1.06; text-wrap: balance; margin-top: 14px; }
+  h2 em { font-style: italic; color: var(--accent); }
+
+  /* Nav */
+  nav.top { position: absolute; inset: 0 0 auto; z-index: 10; padding: 20px 0; color: #fff; }
+  nav.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 24px; letter-spacing: .08em; text-transform: uppercase; }
+  .logo svg { width: 24px; height: 24px; }
+  .links { display: flex; gap: 30px; font-size: 14px; color: rgb(255 255 255 / .82); }
+  .links a:hover { color: #fff; }
+  nav.top .btn { height: 40px; padding: 0 18px; font-size: 14px; }
+
+  /* Hero */
+  .hero { position: relative; min-height: 100vh; min-height: 100svh; overflow: hidden; display: flex; color: #fff; }
+  #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: crosshair; }
+  /* Fallback when WebGL is unavailable: tiled water from gradients. */
+  .hero.no-gl { background:
+      radial-gradient(60% 50% at 70% 30%, rgb(255 255 255 / .28), transparent 70%),
+      repeating-linear-gradient(0deg, color-mix(in srgb, var(--grout) 50%, transparent) 0 2px, transparent 2px 40px),
+      repeating-linear-gradient(90deg, color-mix(in srgb, var(--grout) 50%, transparent) 0 2px, transparent 2px 40px),
+      linear-gradient(160deg, var(--tile), var(--tile-2) 55%, var(--deep)); }
+  .hero.no-gl #gl { display: none; }
+  .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgb(3 34 46 / .55), rgb(3 34 46 / .12) 60%, transparent), linear-gradient(0deg, rgb(3 34 46 / .45), transparent 40%); }
+  .hero-in { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: center; padding: 130px 0 40px; pointer-events: none; }
+  .hero-in > * { pointer-events: auto; }
+  .hero-copy { max-width: 620px; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; background: rgb(255 255 255 / .14); border: 1px solid rgb(255 255 255 / .28); font-size: 13px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .tag b { background: #fff; color: var(--band); border-radius: 999px; padding: 3px 10px; font-size: 11px; letter-spacing: .08em; }
+  h1 { font-size: clamp(48px, 7.8vw, 108px); line-height: .96; margin: 22px 0 20px; letter-spacing: -0.035em; text-shadow: 0 6px 40px rgb(0 30 40 / .35); text-wrap: balance; }
+  h1 em { font-style: italic; color: var(--sun); }
+  .sub { font-size: clamp(16px, 1.5vw, 19px); color: rgb(255 255 255 / .86); max-width: 460px; text-wrap: pretty; text-shadow: 0 1px 12px rgb(0 30 40 / .4); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .facts { display: flex; gap: 34px; margin-top: 46px; flex-wrap: wrap; }
+  .facts div { font-size: 13px; color: rgb(255 255 255 / .8); max-width: 150px; line-height: 1.4; }
+  .facts strong { display: block; font-family: var(--serif); font-weight: 400; font-size: 34px; color: #fff; line-height: 1.1; }
+  .hint { position: absolute; right: clamp(16px, 5vw, 70px); bottom: 32px; z-index: 2; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: rgb(255 255 255 / .8); display: flex; align-items: center; gap: 10px; pointer-events: none; }
+  .hint::before { content: ""; width: 34px; height: 1px; background: currentColor; }
+
+  section { padding: clamp(80px, 11vw, 130px) 0; }
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; margin-bottom: 48px; }
+  .head > p { max-width: 400px; color: var(--muted); }
+
+  /* Treatments */
+  .menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 56px; }
+  .item { display: grid; grid-template-columns: 52px 1fr auto; gap: 18px; align-items: start; padding: 26px 0; border-top: 1px solid var(--line); }
+  .item svg { width: 44px; height: 44px; color: var(--accent); }
+  .item h3 { font-size: 24px; }
+  .item p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .item small { display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-top: 8px; }
+  .item b { font-family: var(--serif); font-weight: 400; font-size: 24px; white-space: nowrap; }
+
+  /* Rooms */
+  .rooms { background: var(--bg-2); }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  .room { background: #fffdf9; border: 1px solid var(--line); border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; transition: transform .3s, box-shadow .3s; }
+  .room:hover { transform: translateY(-5px); box-shadow: 0 30px 60px -32px rgb(10 50 60 / .45); }
+  .room svg { display: block; width: 100%; height: auto; aspect-ratio: 16 / 11; }
+  .room-body { padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .room-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .room h3 { font-size: 25px; }
+  .price { font-weight: 600; white-space: nowrap; }
+  .price small { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .room p { color: var(--muted); font-size: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+  .chips span { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .room .btn { margin-top: auto; height: 44px; align-self: flex-start; background: var(--bg); border: 1px solid var(--line); }
+
+  /* Booking */
+  .book-card { border-radius: clamp(26px, 4vw, 44px); padding: clamp(30px, 6vw, 72px); display: grid; grid-template-columns: 1.05fr 1fr; gap: 44px; align-items: center; color: #fff;
+    background: radial-gradient(70% 90% at 100% 0%, rgb(255 255 255 / .2), transparent 60%), linear-gradient(150deg, var(--tile-2), var(--band) 60%, var(--deep)); }
+  .book-card h2 em { color: var(--sun); }
+  .book-card p.eyebrow { color: var(--sun); }
+  .book-card .lede { color: rgb(255 255 255 / .8); margin-top: 16px; max-width: 420px; }
+  .perks { display: grid; gap: 8px; margin-top: 22px; font-size: 14px; color: rgb(255 255 255 / .88); }
+  .perks span::before { content: "✓"; margin-right: 10px; color: var(--sun); }
+  .book form { display: grid; gap: 10px; padding: 10px; border-radius: 24px; background: rgb(255 255 255 / .1); border: 1px solid rgb(255 255 255 / .2); }
+  .book .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .book input, .book select { height: 52px; border-radius: 14px; padding: 0 16px; border: 0; background: #fff; color: var(--ink); font: inherit; outline: none; width: 100%; min-width: 0; }
+  .book input:focus, .book select:focus { box-shadow: 0 0 0 3px rgb(255 244 214 / .7); }
+  .book .btn { width: 100%; height: 52px; }
+  .fine { font-size: 12px; color: rgb(255 255 255 / .75); text-align: center; padding: 2px 0 4px; }
+
+  footer { border-top: 1px solid var(--line); padding: 32px 0 44px; font-size: 13px; color: var(--muted); }
+  footer .wrap { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; }
+  footer nav { display: flex; gap: 22px; flex-wrap: wrap; }
+  footer .logo { font-size: 18px; color: var(--ink); }
+  footer a:hover { color: var(--ink); }
+
+  @media (max-width: 960px) {
+    .links { display: none; }
+    .menu { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr; max-width: 520px; margin-inline: auto; }
+    .book-card { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .hero-in { justify-content: flex-end; padding: 110px 0 36px; }
+    .shade { background: linear-gradient(0deg, rgb(3 34 46 / .7), rgb(3 34 46 / .2) 60%, transparent 85%), linear-gradient(180deg, rgb(3 34 46 / .35), transparent 16%); }
+    .facts { gap: 22px; margin-top: 34px; }
+    .facts strong { font-size: 28px; }
+    .hint { display: none; }
+  }
+  @media (max-width: 480px) {
+    nav.top .btn { display: none; }
+    .ctas .btn { flex: 1; padding: 0 14px; }
+    .item { grid-template-columns: 40px 1fr; gap: 14px; }
+    .item svg { width: 36px; height: 36px; }
+    .item b { grid-column: 2; font-size: 20px; }
+    .book .row { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .btn, .room { transition: none; }
+  }
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="wrap">
+    <a href="#top" class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M5 12c2.3-2 4.7-2 7 0s4.7 2 7 0M7 16c1.7-1.4 3.3-1.4 5 0s3.3 1.4 5 0" stroke-linecap="round"/><circle cx="12" cy="7" r="1.6" fill="currentColor" stroke="none"/></svg>
+      Solenne
+    </a>
+    <div class="links"><a href="#treatments">Treatments</a><a href="#rooms">Rooms</a><a href="#book">Book a stay</a></div>
+    <a href="#book" class="btn clear">Reserve</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="shade"></div>
+  <div class="wrap hero-in">
+    <div class="hero-copy">
+      <span class="tag"><b>NEW</b> The Lantern Pool reopens for winter</span>
+      <h1>Slow down to the speed of <em>water</em>.</h1>
+      <p class="sub">A thermal hotel and spa in the hills of Val d'Orcia, built around six mineral pools fed by a spring at a steady 37 °C.</p>
+      <div class="ctas"><a href="#book" class="btn light">Book a stay</a><a href="#treatments" class="btn clear">Explore the spa</a></div>
+      <div class="facts">
+        <div><strong>37 °C</strong>spring water, all year round</div>
+        <div><strong>6</strong>indoor &amp; open-air pools</div>
+        <div><strong>24</strong>suites above the valley</div>
+      </div>
+    </div>
+  </div>
+  <span class="hint">Touch the water</span>
+</header>
+
+<section id="treatments">
+  <div class="wrap">
+    <div class="head">
+      <div><p class="eyebrow">Treatments</p><h2>Rituals drawn from the <em>spring</em>.</h2></div>
+      <p>Every treatment begins with an hour in the thermal pools and ends with herbal tea on the terrace. Book ahead, or ask at the spa desk.</p>
+    </div>
+    <div class="menu">
+      <article class="item">
+        <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 28c4-3 8-3 12 0s8 3 12 0 6-2 8-1M6 34c4-3 8-3 12 0s8 3 12 0 6-2 8-1"/><path d="M16 20c0-5 6-6 6-12 0 6 6 7 6 12a6 6 0 0 1-12 0z"/></svg>
+        <div><h3>Thermal Circuit</h3><p>Six pools from 18 to 39 °C, a steam grotto and the salt-water float room.</p><small>Unlimited · Included with stays</small></div>
+        <b>€65</b>
+      </article>
+      <article class="item">
+        <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="22" cy="22" r="14"/><circle cx="22" cy="22" r="8" opacity=".6"/><circle cx="22" cy="22" r="2.5"/></svg>
+        <div><h3>Hot Stone Massage</h3><p>Basalt stones warmed in spring water, worked along the back, legs and shoulders.</p><small>75 minutes</small></div>
+        <b>€140</b>
+      </article>
+      <article class="item">
+        <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M22 38V18"/><path d="M22 26c-8 0-12-6-12-13 8 0 12 5 12 13zM22 22c0-7 4-12 12-12 0 7-4 12-12 12z"/></svg>
+        <div><h3>Clay &amp; Olive Wrap</h3><p>Volcanic clay from the hills, cold-pressed olive oil and a scalp massage under warm towels.</p><small>60 minutes</small></div>
+        <b>€115</b>
+      </article>
+      <article class="item">
+        <svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M8 30h28M12 30c0-6 4-10 10-10s10 4 10 10"/><path d="M22 14v-6M12 18l-4-4M32 18l4-4" stroke-linecap="round"/></svg>
+        <div><h3>Watsu at Dusk</h3><p>Floating, guided stretches in the warm lantern pool as the valley goes gold.</p><small>50 minutes · Private pool</small></div>
+        <b>€160</b>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="rooms" id="rooms">
+  <div class="wrap">
+    <div class="head">
+      <div><p class="eyebrow">Rooms &amp; suites</p><h2>Stone walls, <em>linen</em>, a view.</h2></div>
+      <p>Twenty-four rooms in a restored travertine farmhouse. Every rate includes breakfast, the thermal circuit and late check-out.</p>
+    </div>
+    <div class="grid">
+      <article class="room">
+        <svg viewBox="0 0 320 220" aria-hidden="true">
+          <rect width="320" height="220" fill="#ebe1d2"/><rect x="40" y="30" width="110" height="120" rx="55" fill="#bfe3e6"/><path d="M40 120c30-20 60-10 110-25v55H40z" fill="#9cc9a8"/><path d="M40 135c40-10 70-5 110-15v30H40z" fill="#7fb38f"/>
+          <rect x="170" y="110" width="130" height="50" rx="10" fill="#fffaf2"/><rect x="170" y="96" width="130" height="22" rx="8" fill="#d9cdb8"/><rect x="182" y="102" width="40" height="18" rx="7" fill="#fff"/><rect x="248" y="102" width="40" height="18" rx="7" fill="#fff"/>
+          <rect y="160" width="320" height="60" fill="#d6c7af"/><path d="M0 172h320" stroke="#c7b699" stroke-width="2"/>
+        </svg>
+        <div class="room-body">
+          <div class="room-top"><h3>Valley Room</h3><span class="price">€290 <small>/ night</small></span></div>
+          <p>A calm double with an arched window over the olive groves and a rain shower in travertine.</p>
+          <div class="chips"><span>2 guests</span><span>28 m²</span><span>Valley view</span></div>
+          <a href="#book" class="btn">Choose room</a>
+        </div>
+      </article>
+      <article class="room">
+        <svg viewBox="0 0 320 220" aria-hidden="true">
+          <rect width="320" height="220" fill="#e7ddd0"/><rect x="24" y="24" width="272" height="96" rx="12" fill="#cfe9ea"/><path d="M24 92c60-24 120-6 180-20s70 0 92-8v56H24z" fill="#a8cfb4"/>
+          <rect x="60" y="138" width="200" height="60" rx="30" fill="#6fd3dc"/><rect x="60" y="138" width="200" height="60" rx="30" fill="none" stroke="#fffaf2" stroke-width="8"/><path d="M90 168c16-6 30-6 46 0s30 6 46 0 26-4 40-1" stroke="#fff" stroke-width="3" fill="none" opacity=".8"/>
+          <path d="M0 198h320v22H0z" fill="#d6c7af"/>
+        </svg>
+        <div class="room-body">
+          <div class="room-top"><h3>Terrace Suite</h3><span class="price">€460 <small>/ night</small></span></div>
+          <p>A wide living room opening onto a private terrace with its own spring-fed plunge pool.</p>
+          <div class="chips"><span>2 guests</span><span>52 m²</span><span>Plunge pool</span></div>
+          <a href="#book" class="btn">Choose suite</a>
+        </div>
+      </article>
+      <article class="room">
+        <svg viewBox="0 0 320 220" aria-hidden="true">
+          <rect width="320" height="220" fill="#2a3b40"/><circle cx="240" cy="60" r="26" fill="#fff4d6" opacity=".9"/><path d="M0 110c60-30 120-10 180-30s100 0 140-10v60H0z" fill="#3e5a4f"/>
+          <rect x="30" y="120" width="260" height="70" rx="14" fill="#0e4f74"/><path d="M40 150c20-8 40-8 60 0s40 8 60 0 40-8 60 0 40 6 60 0" stroke="#6fd3dc" stroke-width="3" fill="none"/><path d="M60 140h60M180 170h70" stroke="#fff4d6" stroke-width="2" opacity=".6"/>
+          <circle cx="70" cy="110" r="5" fill="#ffb35a"/><circle cx="150" cy="110" r="5" fill="#ffb35a"/><circle cx="230" cy="110" r="5" fill="#ffb35a"/>
+          <rect y="190" width="320" height="30" fill="#1d2b2f"/>
+        </svg>
+        <div class="room-body">
+          <div class="room-top"><h3>Lantern Villa</h3><span class="price">€780 <small>/ night</small></span></div>
+          <p>Two bedrooms around a candlelit courtyard pool, with a private treatment room and butler.</p>
+          <div class="chips"><span>4 guests</span><span>110 m²</span><span>Private spa</span></div>
+          <a href="#book" class="btn">Choose villa</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="book" id="book">
+  <div class="wrap">
+    <div class="book-card">
+      <div>
+        <p class="eyebrow">Book a stay</p>
+        <h2>Two nights is good. <em>Four</em> is a reset.</h2>
+        <p class="lede">Stay four nights or more and we'll add a Watsu session and a dinner of the season's produce for two.</p>
+        <div class="perks"><span>Best rate when you book direct</span><span>Thermal circuit &amp; breakfast included</span><span>Free cancellation up to 7 days before</span></div>
+      </div>
+      <form onsubmit="event.preventDefault(); this.querySelector('button').textContent = 'Request sent ✓';">
+        <div class="row">
+          <input type="date" value="2026-11-20" aria-label="Arrival date">
+          <select aria-label="Nights"><option>2 nights</option><option>3 nights</option><option selected>4 nights</option><option>7 nights</option></select>
+        </div>
+        <div class="row">
+          <select aria-label="Room"><option>Valley Room · €290</option><option selected>Terrace Suite · €460</option><option>Lantern Villa · €780</option></select>
+          <select aria-label="Guests"><option>1 guest</option><option selected>2 guests</option><option>4 guests</option></select>
+        </div>
+        <input type="email" placeholder="Email address" aria-label="Email address" required>
+        <button class="btn light">Check availability</button>
+        <p class="fine">No payment today · We reply within the hour</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a href="#top" class="logo">Solenne</a>
+    <nav><a href="#treatments">Treatments</a><a href="#rooms">Rooms</a><a href="#book">Book a stay</a></nav>
+    <span>© 2026 Solenne Terme · Val d'Orcia, Tuscany</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const CONFIG = {
+    simSize: 256,        // simulation cells along the longer side (higher = finer ripples)
+    damping: 0.988,      // 1 = ripples never fade, lower = calmer water
+    wake: 0.035,         // strength of the trail left by the pointer
+    tap: 0.6,            // strength of a click / tap
+    rain: 0.11,          // strength of idle raindrops (0 disables rain)
+    rainEvery: 520,      // ms between raindrops once idle
+    refraction: 0.06,    // how much the floor bends through the surface
+    tile: 46,            // tile size in CSS px
+    quality: 0.8,        // render scale relative to the (capped) devicePixelRatio
+  };
+
+  const hero = document.getElementById('top');
+  const canvas = document.getElementById('gl');
+  const gl = canvas.getContext('webgl', { antialias: false, premultipliedAlpha: false });
+  const fail = (e) => { if (e) console.warn(e); hero.classList.add('no-gl'); };
+  if (!gl) return fail();
+
+  // Resolve any CSS colour (hex, rgb, oklch...) to [r,g,b] in 0..1.
+  const probe = document.createElement('span');
+  document.body.appendChild(probe);
+  const cssColor = (name) => {
+    probe.style.color = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const m = getComputedStyle(probe).color.match(/[\d.]+/g) || [0, 0, 0];
+    return m.slice(0, 3).map((v) => +v / 255);
+  };
+
+  // --- Floating-point render targets for the height field (WebGL1 extensions) ---
+  const fl = gl.getExtension('OES_texture_float'), hf = gl.getExtension('OES_texture_half_float');
+  gl.getExtension('WEBGL_color_buffer_float'); gl.getExtension('EXT_color_buffer_half_float');
+  const types = [];
+  if (hf) types.push([hf.HALF_FLOAT_OES, gl.getExtension('OES_texture_half_float_linear')]);
+  if (fl) types.push([gl.FLOAT, gl.getExtension('OES_texture_float_linear')]);
+  let texType = 0, linear = false;
+  for (const [type, lin] of types) {
+    const t = gl.createTexture(), f = gl.createFramebuffer();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 4, 4, 0, gl.RGBA, type, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.deleteFramebuffer(f); gl.deleteTexture(t);
+    if (ok) { texType = type; linear = !!lin; break; }
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (!texType) return fail('No float render targets');
+
+  const VS = `attribute vec2 p; varying vec2 uv; void main(){ uv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }`;
+  // Height field: r = height, g = velocity. Classic 4-neighbour wave equation.
+  const STEP_FS = `precision highp float;
+    varying vec2 uv; uniform sampler2D uTex; uniform vec2 uTexel; uniform float uDamp;
+    void main(){
+      vec4 i = texture2D(uTex, uv);
+      float avg = (texture2D(uTex, uv - vec2(uTexel.x, 0.)).r + texture2D(uTex, uv + vec2(uTexel.x, 0.)).r
+                 + texture2D(uTex, uv - vec2(0., uTexel.y)).r + texture2D(uTex, uv + vec2(0., uTexel.y)).r) * .25;
+      i.g += (avg - i.r) * 2.;
+      i.g *= uDamp;
+      i.r += i.g;
+      i.r *= .999;                       // slowly settle back to flat
+      gl_FragColor = i;
+    }`;
+  // Adds a smooth cosine-shaped bump at uDrop (sim uv) with radius uRad.
+  const DROP_FS = `precision highp float;
+    varying vec2 uv; uniform sampler2D uTex; uniform vec2 uDrop, uAspect; uniform float uRad, uStr;
+    void main(){
+      vec4 i = texture2D(uTex, uv);
+      float d = max(0., 1. - length((uv - uDrop) * uAspect) / uRad);
+      i.r += (.5 - cos(d * 3.14159) * .5) * uStr;
+      gl_FragColor = i;
+    }`;
+  // Renders the water: refracted procedural tiles, caustics, specular glints.
+  const RENDER_FS = `precision highp float;
+    varying vec2 uv; uniform sampler2D uTex; uniform vec2 uTexel, uRes; uniform float uTime, uTile, uRefr, uScale;
+    uniform vec3 uTileC, uTile2, uGrout, uBand, uDeep, uSun;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    // Cheap animated sun caustics (iterated sine warp).
+    float caustic(vec2 q, float t){
+      vec2 p = mod(q, 6.2832) - 250.;                     // tileable over 2*pi
+      vec2 i = p; float c = 1.;
+      for (int n = 0; n < 4; n++){
+        float tt = t * (1. - 3.5 / float(n + 1));
+        i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x));
+        c += 1. / length(vec2(p.x / (sin(i.x + tt) / .005), p.y / (cos(i.y + tt) / .005)));
+      }
+      c = 1.17 - pow(c / 4., 1.4);
+      return pow(abs(c), 8.);
+    }
+    vec3 floorColor(vec2 px){
+      vec2 g = px / uTile, id = floor(g), f = fract(g);
+      float h = hash(id);
+      vec3 c = mix(uTileC, uTile2, h * .7);
+      // lane stripe two thirds down, plus a few scattered accent tiles
+      float lane = step(abs(id.y - floor(uRes.y / uScale / uTile * .26)), 0.);
+      c = mix(c, uBand, max(lane, step(.965, h)) * .85);
+      c *= .94 + .1 * (1. - f.y);                           // glazed sheen per tile
+      vec2 e = min(f, 1. - f);
+      float grout = smoothstep(.035, .06, min(e.x, e.y));
+      return mix(uGrout, c, grout);
+    }
+    void main(){
+      float h = texture2D(uTex, uv).r;
+      float hx = texture2D(uTex, uv + vec2(uTexel.x, 0.)).r - texture2D(uTex, uv - vec2(uTexel.x, 0.)).r;
+      float hy = texture2D(uTex, uv + vec2(0., uTexel.y)).r - texture2D(uTex, uv - vec2(0., uTexel.y)).r;
+      vec3 n = normalize(vec3(-hx, -hy, .12));
+      float lap = (texture2D(uTex, uv + vec2(uTexel.x, 0.)).r + texture2D(uTex, uv - vec2(uTexel.x, 0.)).r
+                 + texture2D(uTex, uv + vec2(0., uTexel.y)).r + texture2D(uTex, uv - vec2(0., uTexel.y)).r) - 4. * h;
+      vec2 px = gl_FragCoord.xy / uScale;                    // CSS px
+      vec2 floorPx = px + n.xy * uRefr * uRes.y / uScale;     // refraction offset
+      vec3 col = floorColor(floorPx);
+      // depth: deeper water toward the bottom of the hero
+      float depth = .35 + .5 * (1. - uv.y);
+      col = mix(col, uDeep, depth * .46);
+      // caustics: sun pattern bent by the surface, plus focus where the surface is concave
+      float ca = caustic(floorPx / uTile * 1.3 + n.xy * 3., uTime * .45 + 23.);
+      col += uSun * (ca * .8 + clamp(-lap * 10., 0., 1.) * .6) * (1. - depth * .5);
+      col -= clamp(lap * 6., 0., .25) * uDeep;                // and darker where light spreads out
+      // surface glints and soft sky reflection
+      vec3 L = normalize(vec3(-.4, .6, .7));
+      float spec = pow(max(dot(reflect(-L, n), vec3(0., 0., 1.)), 0.), 120.);
+      col += uSun * spec * 1.4;
+      col += vec3(.05, .08, .09) * (1. - n.z) * 4.;
+      col += (hash(gl_FragCoord.xy + uTime) - .5) / 255.;
+      gl_FragColor = vec4(col, 1.);
+    }`;
+
+  function program(fs) {
+    const p = gl.createProgram();
+    for (const [type, src] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, fs]]) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      gl.attachShader(p, s);
+    }
+    gl.bindAttribLocation(p, 0, 'p');
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {};
+    const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const name = gl.getActiveUniform(p, i).name; u[name] = gl.getUniformLocation(p, name); }
+    return { p, u };
+  }
+  let stepP, dropP, renderP;
+  try { stepP = program(STEP_FS); dropP = program(DROP_FS); renderP = program(RENDER_FS); }
+  catch (e) { return fail(e); }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  gl.useProgram(renderP.p);
+  const tokens = { uTileC: '--tile', uTile2: '--tile-2', uGrout: '--grout', uBand: '--band', uDeep: '--deep', uSun: '--sun' };
+  for (const k in tokens) gl.uniform3fv(renderP.u[k], cssColor(tokens[k]));
+
+  // --- Ping-pong height-field targets ---
+  let targets = [], simW = 0, simH = 0;
+  function makeTarget(w, h) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    const filter = linear ? gl.LINEAR : gl.NEAREST;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, texType, null);
+    const fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    return { tex, fb };
+  }
+  // Run one full-screen pass reading targets[0] into targets[1], then swap.
+  function pass(prog, setup) {
+    gl.useProgram(prog.p);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targets[1].fb);
+    gl.viewport(0, 0, simW, simH);
+    gl.bindTexture(gl.TEXTURE_2D, targets[0].tex);
+    gl.uniform1i(prog.u.uTex, 0);
+    setup(prog.u);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    targets.reverse();
+  }
+  const step = () => pass(stepP, (u) => { gl.uniform2f(u.uTexel, 1 / simW, 1 / simH); gl.uniform1f(u.uDamp, CONFIG.damping); });
+  // x, y in 0..1 of the hero (y down); radius in fractions of the hero height.
+  const drop = (x, y, rad, str) => pass(dropP, (u) => {
+    gl.uniform2f(u.uDrop, x, 1 - y); gl.uniform2f(u.uAspect, W / H, 1);
+    gl.uniform1f(u.uRad, rad); gl.uniform1f(u.uStr, str);
+  });
+
+  let W = 0, H = 0, scale = 1;
+  function resize() {
+    const r = hero.getBoundingClientRect();
+    W = r.width; H = r.height;
+    scale = Math.min(window.devicePixelRatio || 1, 2) * CONFIG.quality;
+    canvas.width = Math.max(1, Math.round(W * scale)); canvas.height = Math.max(1, Math.round(H * scale));
+    const long = Math.max(W, H), w = Math.round(CONFIG.simSize * W / long), h = Math.round(CONFIG.simSize * H / long);
+    if (w !== simW || h !== simH) {           // rebuild (and calm) the water when its shape changes
+      for (const t of targets) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); }
+      simW = Math.max(8, w); simH = Math.max(8, h);
+      targets = [makeTarget(simW, simH), makeTarget(simW, simH)];
+      seed();
+    }
+  }
+  // A few rings so the very first frame already looks alive.
+  function seed() {
+    const spots = W < 720 ? [[.3, .3, .07], [.75, .45, .05], [.6, .16, .035]] : [[.72, .34, .06], [.86, .7, .045], [.58, .78, .035], [.4, .16, .03]];
+    for (const [x, y, r] of spots) drop(x, y, r, CONFIG.tap * .6);
+    for (let i = 0; i < 26; i++) step();
+    drop(W < 720 ? .62 : .8, W < 720 ? .3 : .5, .03, CONFIG.tap * .5);
+    for (let i = 0; i < 8; i++) step();
+  }
+
+  function render() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(renderP.p);
+    const u = renderP.u;
+    gl.bindTexture(gl.TEXTURE_2D, targets[0].tex);
+    gl.uniform1i(u.uTex, 0);
+    gl.uniform2f(u.uTexel, 1 / simW, 1 / simH);
+    gl.uniform2f(u.uRes, canvas.width, canvas.height);
+    gl.uniform1f(u.uScale, scale);
+    gl.uniform1f(u.uTime, time);
+    gl.uniform1f(u.uTile, CONFIG.tile * (W < 720 ? .8 : 1));
+    gl.uniform1f(u.uRefr, CONFIG.refraction);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  // --- Pointer: soft wakes on move, a big ripple on tap/click ---
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let lastX = -1, lastY = -1, idleAt = performance.now();
+  const toHero = (e) => { const r = hero.getBoundingClientRect(); return [(e.clientX - r.left) / W, (e.clientY - r.top) / H]; };
+  hero.addEventListener('pointermove', (e) => {
+    if (reduced.matches) return;
+    const [x, y] = toHero(e);
+    if (lastX >= 0) {
+      const dist = Math.hypot((x - lastX) * W / H, y - lastY), n = Math.min(6, Math.ceil(dist / .012));
+      for (let i = 1; i <= n; i++) drop(lastX + (x - lastX) * i / n, lastY + (y - lastY) * i / n, .022, CONFIG.wake * Math.min(1, dist * 30));
+    }
+    lastX = x; lastY = y; idleAt = performance.now();
+  }, { passive: true });
+  hero.addEventListener('pointerleave', () => { lastX = -1; });
+  hero.addEventListener('pointerdown', (e) => {
+    const [x, y] = toHero(e);
+    drop(x, y, .045, CONFIG.tap);
+    if (e.pointerType === 'touch') lastX = -1;
+    idleAt = performance.now();
+    if (reduced.matches) { for (let i = 0; i < 30; i++) step(); render(); }   // still: show one settled ring
+  }, { passive: true });
+
+  let raf = 0, last = 0, time = 0, acc = 0, rainAt = 0, visible = true;
+  function frame(now) {
+    const dt = Math.min(now - last, 50); last = now;
+    time += dt / 1000;
+    // Fixed-rate simulation (~120 steps/s) so speed doesn't depend on the display.
+    acc += dt;
+    let n = 0;
+    while (acc >= 8.33 && n < 8) { step(); acc -= 8.33; n++; }
+    if (n === 8) acc = 0;
+    // Idle rain
+    if (CONFIG.rain > 0 && now - idleAt > 1800 && now > rainAt) {
+      drop(Math.random(), Math.random(), .012 + Math.random() * .016, CONFIG.rain * (.5 + Math.random()));
+      rainAt = now + CONFIG.rainEvery * (.4 + Math.random() * 1.2);
+    }
+    render();
+    raf = requestAnimationFrame(frame);
+  }
+  function start() {
+    cancelAnimationFrame(raf);
+    if (reduced.matches) { render(); return; }        // one still frame
+    if (!document.hidden && visible) { last = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+  // Stop simulating once the hero scrolls out of view.
+  if ('IntersectionObserver' in window) new IntersectionObserver(([e]) => { visible = e.isIntersecting; start(); }).observe(hero);
+
+  addEventListener('resize', () => { resize(); render(); });
+  document.addEventListener('visibilitychange', start);
+  reduced.addEventListener?.('change', start);
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); cancelAnimationFrame(raf); hero.classList.add('no-gl'); });
+
+  resize();
+  render();
+  start();
+})();
+</script>
+</body>
+</html>

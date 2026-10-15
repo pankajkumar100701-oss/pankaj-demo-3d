@@ -1,0 +1,18 @@
+/* hero workstream styles */
+
+/* The hero's email button: a mail icon, so it reads as "email me" rather
+   than a status badge; the availability note sits under the buttons. */
+.u-mail { width: 1.05em; height: 1.05em; flex: none; }
+.u-open {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--u-muted);
+}
+.u-mobile-cta { flex-wrap: wrap; }

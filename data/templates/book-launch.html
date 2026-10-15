@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Quiet Hours — 3D Book Launch</title>
+<style>
+/*
+  Customise: page colours & fonts live in :root below.
+  Editions (cover colours) live in the EDITIONS object in the <script> at the bottom —
+  add/rename entries and matching swatch buttons. Book size: --bw / --bh / --bd.
+*/
+@property --cover   { syntax: '<color>'; inherits: true; initial-value: #1b2550; }
+@property --cover-2 { syntax: '<color>'; inherits: true; initial-value: #0a0f26; }
+@property --art     { syntax: '<color>'; inherits: true; initial-value: #e8c872; }
+@property --accent  { syntax: '<color>'; inherits: true; initial-value: #e8c872; }
+:root {
+  --bg: #13110f;
+  --bg-2: #1c1916;
+  --text: #f1e9da;
+  --muted: #a99f8f;
+  --line: rgba(241, 233, 218, .12);
+  --paper: #f1e8d4;
+  --paper-line: #d6c8aa;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --cover: #1b2550; --cover-2: #0a0f26; --art: #e8c872; --accent: #e8c872;
+  --bw: 250px; --bh: 370px; --bd: 46px;
+  transition: --cover .8s ease, --cover-2 .8s ease, --art .8s ease, --accent .8s ease;
+}
+* { box-sizing: border-box; margin: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans); color: var(--text); line-height: 1.6; overflow-x: hidden;
+  background:
+    radial-gradient(60rem 40rem at 75% 20%, color-mix(in srgb, var(--cover) 45%, transparent), transparent 70%),
+    radial-gradient(40rem 30rem at 10% 90%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+a { color: inherit; text-decoration: none; }
+.wrap { width: min(1180px, 100% - 40px); margin-inline: auto; }
+
+/* nav */
+nav { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(12px); background: rgba(19,17,15,.72); border-bottom: 1px solid var(--line); }
+nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+.logo { font-family: var(--serif); font-size: 1.2rem; letter-spacing: .02em; display: flex; align-items: center; gap: 10px; }
+.logo i { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--accent); display: grid; place-items: center; font: italic 600 .8rem var(--serif); color: var(--accent); }
+.links { display: flex; gap: 24px; margin-left: auto; font-size: .9rem; color: var(--muted); }
+.links a:hover { color: var(--text); }
+.btn { display: inline-flex; align-items: center; gap: 10px; padding: 11px 20px; border-radius: 999px; font-weight: 600; font-size: .92rem; background: var(--accent); color: #17130f; border: 0; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px -8px var(--accent); }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+nav .btn { padding: 8px 16px; }
+
+/* hero */
+.hero { display: grid; grid-template-columns: 1fr 1.05fr; gap: 40px; align-items: center; padding: 56px 0 72px; }
+.eyebrow { font-size: .78rem; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(2.8rem, 6.4vw, 5.2rem); line-height: 1; letter-spacing: -.02em; margin: 14px 0 12px; }
+h1 em { color: var(--accent); }
+.by { font-family: var(--serif); font-size: 1.15rem; color: var(--muted); }
+.by b { color: var(--text); font-weight: 500; }
+.blurb { max-width: 34rem; margin: 22px 0 28px; color: #d7cdbd; }
+.label { font-size: .75rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.label span { color: var(--text); }
+.swatches { display: flex; gap: 12px; margin-bottom: 30px; flex-wrap: wrap; }
+.swatch { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; padding: 3px; background-clip: content-box; outline-offset: 3px; transition: transform .2s, border-color .3s; }
+.swatch:hover { transform: scale(1.08); }
+.swatch[aria-pressed="true"] { border-color: var(--text); }
+.buy { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.price { font-family: var(--serif); font-size: 2rem; line-height: 1; }
+.price small { display: block; font: .75rem var(--sans); color: var(--muted); margin-top: 4px; letter-spacing: .04em; }
+.meta { display: flex; gap: 28px; margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); font-size: .85rem; color: var(--muted); flex-wrap: wrap; }
+.meta b { display: block; color: var(--text); font-weight: 500; font-family: var(--serif); font-size: 1.05rem; }
+
+/* 3D stage */
+.stage { position: relative; height: 560px; perspective: 1500px; display: grid; place-items: center; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.stage.dragging { cursor: grabbing; }
+.floor { position: absolute; left: 50%; bottom: 50px; width: 300px; height: 46px; margin-left: -150px; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.65), transparent); filter: blur(6px); }
+.hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.book { position: relative; width: var(--bw); height: var(--bh); transform-style: preserve-3d; outline: none; }
+.book > *, .cover > * { position: absolute; backface-visibility: hidden; }
+.face { overflow: hidden; }
+.shade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+
+.cover { inset: 0; transform-style: preserve-3d; transform-origin: 0 50%; transform: translateZ(calc(var(--bd) / 2)); transition: transform .9s cubic-bezier(.2,.8,.2,1); backface-visibility: visible; }
+.book.open .cover { transform: translateZ(calc(var(--bd) / 2)) rotateY(-34deg); }
+.front, .inside { inset: 0; border-radius: 2px 6px 6px 2px; }
+.front {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.45) 0, rgba(255,255,255,.12) 3%, rgba(0,0,0,.25) 6%, transparent 9%),
+    linear-gradient(160deg, rgba(255,255,255,.14), transparent 40%, rgba(0,0,0,.35)),
+    radial-gradient(120% 80% at 50% 30%, var(--cover), var(--cover-2));
+  color: var(--art); padding: 30px 26px 24px 34px; display: flex; flex-direction: column; text-align: center;
+}
+.front svg { width: 100%; height: auto; margin: 6px 0 10px; }
+.front .kick { font-size: .58rem; letter-spacing: .38em; text-transform: uppercase; opacity: .85; }
+.front h2 { font-family: var(--serif); font-weight: 500; font-size: 2.15rem; line-height: .95; letter-spacing: .01em; }
+.front .auth { margin-top: auto; font-family: var(--serif); font-size: .8rem; letter-spacing: .32em; text-transform: uppercase; }
+.inside { transform: rotateY(180deg); background: repeating-radial-gradient(circle at 0 0, var(--cover-2) 0 6px, var(--cover) 6px 12px); }
+.inside::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.4), transparent 30%); }
+
+.firstpage { left: 0; top: 4px; width: calc(var(--bw) - 5px); height: calc(var(--bh) - 8px); transform: translateZ(calc(var(--bd) / 2 - 3px)); background: linear-gradient(90deg, #d9ccb0, var(--paper) 12%); color: #3a3026; padding: 46px 26px 20px 34px; font-family: var(--serif); }
+.firstpage small { display: block; font-size: .6rem; letter-spacing: .3em; text-transform: uppercase; color: #8a7a62; margin-bottom: 16px; }
+.firstpage p { font-size: .92rem; line-height: 1.55; }
+.firstpage p::first-letter { float: left; font-size: 3rem; line-height: .8; padding: 4px 6px 0 0; color: var(--cover); }
+.back { inset: 0; transform: translateZ(calc(var(--bd) / -2)) rotateY(180deg); border-radius: 6px 2px 2px 6px; background: linear-gradient(270deg, rgba(0,0,0,.4), transparent 9%), radial-gradient(120% 80% at 50% 30%, var(--cover), var(--cover-2)); color: var(--art); padding: 34px 34px 24px 26px; font-family: var(--serif); font-size: .82rem; line-height: 1.5; }
+.back q { display: block; font-style: italic; margin-bottom: 16px; }
+.back .code { position: absolute; right: 22px; bottom: 22px; width: 84px; height: 46px; background: #fff repeating-linear-gradient(90deg, #111 0 2px, transparent 2px 3px, #111 3px 4px, transparent 4px 7px); border: 5px solid #fff; }
+.spine { left: calc((var(--bw) - var(--bd)) / 2); width: var(--bd); height: var(--bh); transform: rotateY(-90deg) translateZ(calc(var(--bw) / 2)); background: linear-gradient(90deg, var(--cover-2), var(--cover) 30%, var(--cover) 70%, var(--cover-2)); color: var(--art); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 18px 0; }
+.spine span { writing-mode: vertical-rl; font-family: var(--serif); font-size: 1.05rem; letter-spacing: .06em; }
+.spine small { writing-mode: vertical-rl; font-size: .55rem; letter-spacing: .3em; text-transform: uppercase; }
+.spine i { width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 50%; }
+.edge { background-color: var(--paper); }
+.edge.fore { left: calc((var(--bw) - var(--bd)) / 2 + 3px); top: 4px; width: calc(var(--bd) - 6px); height: calc(var(--bh) - 8px); transform: rotateY(90deg) translateZ(calc(var(--bw) / 2 - 5px)); background-image: repeating-linear-gradient(90deg, transparent 0 1px, var(--paper-line) 1px 1.6px), linear-gradient(90deg, rgba(0,0,0,.12), transparent 30%, transparent 70%, rgba(0,0,0,.12)); }
+.edge.top, .edge.bottom { left: 0; width: calc(var(--bw) - 5px); height: calc(var(--bd) - 6px); top: calc((var(--bh) - var(--bd)) / 2 + 3px); background-image: repeating-linear-gradient(0deg, transparent 0 1px, var(--paper-line) 1px 1.6px); }
+.edge.top { transform: rotateX(90deg) translateZ(calc(var(--bh) / 2 - 4px)); }
+.edge.bottom { transform: rotateX(-90deg) translateZ(calc(var(--bh) / 2 - 4px)); }
+
+/* reviews & sections */
+section { padding: 80px 0; border-top: 1px solid var(--line); }
+h3 { font-family: var(--serif); font-weight: 500; font-size: clamp(1.8rem, 3.6vw, 2.6rem); line-height: 1.1; margin: 10px 0 36px; max-width: 30ch; }
+.reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.review { background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+.stars { color: var(--accent); letter-spacing: .2em; font-size: .95rem; }
+.review blockquote { font-family: var(--serif); font-size: 1.15rem; line-height: 1.45; }
+.review cite { margin-top: auto; font-style: normal; font-size: .82rem; color: var(--muted); }
+.review cite b { color: var(--text); font-weight: 600; display: block; }
+.author { display: grid; grid-template-columns: 180px 1fr; gap: 40px; align-items: center; }
+.portrait { aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 50% 38%, var(--paper) 0 18%, transparent 19%), radial-gradient(ellipse 34% 30% at 50% 88%, var(--paper) 0 98%, transparent 100%), radial-gradient(circle at 30% 20%, var(--cover), var(--cover-2)); border: 1px solid var(--line); }
+.author p { color: #d7cdbd; max-width: 46rem; }
+.cta { text-align: center; }
+.cta h3 { margin: 10px auto 14px; }
+.cta p { color: var(--muted); margin-bottom: 26px; }
+footer { padding: 30px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+@media (max-width: 920px) {
+  .hero { grid-template-columns: 1fr; padding-top: 32px; gap: 0; }
+  .stage { order: -1; height: 480px; }
+  .reviews { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  :root { --bw: 200px; --bh: 296px; --bd: 38px; }
+  .links { display: none; }
+  nav .btn { margin-left: auto; }
+  .stage { height: 400px; }
+  .floor { bottom: 40px; }
+  .front { padding: 24px 18px 18px 26px; }
+  .front h2 { font-size: 1.7rem; }
+  .firstpage { padding: 34px 18px 16px 26px; }
+  .firstpage p { font-size: .78rem; }
+  .back { font-size: .7rem; padding: 26px 26px 20px 20px; }
+  .author { grid-template-columns: 1fr; gap: 24px; }
+  .portrait { width: 120px; }
+  section { padding: 60px 0; }
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#"><i>M</i>Mira Sen</a>
+    <div class="links">
+      <a href="#book">The Book</a><a href="#reviews">Praise</a><a href="#author">Author</a><a href="#preorder">Events</a>
+    </div>
+    <a class="btn" href="#preorder">Pre-order</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="hero" id="book">
+    <div>
+      <div class="eyebrow">A novel &middot; Out 12 March 2027</div>
+      <h1>The Quiet <em>Hours</em></h1>
+      <p class="by">by <b>Mira Sen</b>, author of <i>Salt &amp; Lantern</i></p>
+      <p class="blurb">Every clock in the river town of Halden stops at 3:17 a.m. — and only Ada, the night-shift archivist, notices the silence. A luminous, unhurried story about grief, small miracles and the hours we never get back.</p>
+      <div class="label">Edition &mdash; <span id="edName">Midnight</span></div>
+      <div class="swatches" role="group" aria-label="Choose edition">
+        <button class="swatch" data-ed="midnight" aria-pressed="true" aria-label="Midnight edition" style="background-color:#1b2550"></button>
+        <button class="swatch" data-ed="saffron" aria-pressed="false" aria-label="Saffron edition" style="background-color:#e39b2d"></button>
+        <button class="swatch" data-ed="forest" aria-pressed="false" aria-label="Forest edition" style="background-color:#23463a"></button>
+        <button class="swatch" data-ed="oxblood" aria-pressed="false" aria-label="Oxblood edition" style="background-color:#6e1a22"></button>
+      </div>
+      <div class="buy">
+        <div class="price" id="price">$28<small>Signed hardcover &middot; 384 pp</small></div>
+        <a class="btn" href="#preorder">Pre-order now &rarr;</a>
+        <a class="btn ghost" href="#reviews">Read praise</a>
+      </div>
+      <div class="meta">
+        <div><b>12.03.27</b>Release date</div>
+        <div><b>Hardcover</b>Cloth-bound</div>
+        <div><b>Ember House</b>Publisher</div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="floor" id="floor"></div>
+      <div class="book" id="book3d" tabindex="0" role="img" aria-label="The Quiet Hours hardcover. Drag to rotate, tap or press Enter to open.">
+        <div class="face back"><q>Sen writes the night the way other novelists write a city — with streets you can get lost in.</q><p>A novel about the minute after the world goes still.</p><div class="code"></div><div class="shade"></div></div>
+        <div class="face edge fore"><div class="shade"></div></div>
+        <div class="face edge top"></div>
+        <div class="face edge bottom"></div>
+        <div class="face firstpage"><small>Chapter One &middot; 3:17</small><p>The clocks stopped all at once, the way birds go quiet before rain, and Ada was the only one in Halden still awake to hear what the silence had to say.</p></div>
+        <div class="face spine"><i></i><span>The Quiet Hours</span><small>Mira Sen</small><div class="shade"></div></div>
+        <div class="cover">
+          <div class="face front">
+            <div class="kick">A Novel</div>
+            <svg viewBox="0 0 200 150" aria-hidden="true">
+              <g fill="none" stroke="currentColor">
+                <circle cx="100" cy="72" r="54" stroke-width="1" opacity=".5"/>
+                <circle cx="100" cy="72" r="44" stroke-width="2.5"/>
+                <g stroke-width="1.5" opacity=".9">
+                  <path d="M100 32v8M100 104v8M60 72h8M132 72h8M72 44l5 5M128 44l-5 5M72 100l5-5M128 100l-5-5"/>
+                </g>
+                <path d="M100 72V48M100 72l13 7" stroke-width="2.5" stroke-linecap="round"/>
+              </g>
+              <circle cx="100" cy="72" r="3" fill="currentColor"/>
+              <g fill="currentColor" opacity=".8"><circle cx="22" cy="20" r="1.4"/><circle cx="176" cy="30" r="1.8"/><circle cx="160" cy="128" r="1.2"/><circle cx="34" cy="112" r="1.6"/><circle cx="186" cy="88" r="1"/><circle cx="12" cy="64" r="1"/></g>
+              <path d="M30 150v-14h12v-8l8-6 8 6v8h18v-10h14v24zM120 150v-18l10-8 10 8v6h16v-12h12v24z" fill="currentColor" opacity=".55"/>
+            </svg>
+            <h2>The Quiet<br>Hours</h2>
+            <div class="auth">Mira Sen</div>
+            <div class="shade"></div>
+          </div>
+          <div class="face inside"></div>
+        </div>
+      </div>
+      <div class="hint">Drag to turn &middot; tap to open</div>
+    </div>
+  </div>
+</main>
+
+<section id="reviews">
+  <div class="wrap">
+    <div class="eyebrow">Early praise</div>
+    <h3>“A book to read slowly, by lamplight, with the phone in another room.”</h3>
+    <div class="reviews">
+      <article class="review"><div class="stars" aria-label="5 stars">★★★★★</div><blockquote>Tender, strange and impossible to put down. Sen turns a single stopped minute into a whole life.</blockquote><cite><b>The Northern Review</b>Fiction pick of the season</cite></article>
+      <article class="review"><div class="stars" aria-label="5 stars">★★★★★</div><blockquote>The rare literary novel with the pull of a mystery. I finished it at 3:17 a.m., which felt right.</blockquote><cite><b>Jonah Ellery</b>author of <i>The Long Field</i></cite></article>
+      <article class="review"><div class="stars" aria-label="4.5 stars">★★★★☆</div><blockquote>Quietly devastating. Every sentence sounds like it was written in a library after closing time.</blockquote><cite><b>Paper &amp; Ink Weekly</b>Starred review</cite></article>
+    </div>
+  </div>
+</section>
+
+<section id="author">
+  <div class="wrap author">
+    <div class="portrait" role="img" aria-label="Illustrated portrait of Mira Sen"></div>
+    <div>
+      <div class="eyebrow">About the author</div>
+      <h3>Mira Sen writes about the hours most people sleep through.</h3>
+      <p>Born in Pune and raised between Bristol and the Kerala coast, Mira spent eight years as a night archivist before her debut, <i>Salt &amp; Lantern</i>, was shortlisted for the Ember Prize. She lives by a very loud river with two cats and too many clocks.</p>
+    </div>
+  </div>
+</section>
+
+<section id="preorder" class="cta">
+  <div class="wrap">
+    <div class="eyebrow">Signed first editions &middot; limited</div>
+    <h3>Reserve your copy before the clocks stop.</h3>
+    <p>Pre-orders ship on release day with a signed bookplate and a letterpress bookmark.</p>
+    <a class="btn" href="#book">Pre-order — <span id="price2">$28</span></a>
+  </div>
+</section>
+
+<footer><div class="wrap"><span>© 2027 Mira Sen · Ember House</span><span>Launch tour: Bristol · London · Kochi · Online</span></div></footer>
+
+<script>
+const EDITIONS = {
+  midnight: { name: 'Midnight', cover: '#1b2550', cover2: '#0a0f26', art: '#e8c872', accent: '#e8c872', price: 28 },
+  saffron:  { name: 'Saffron',  cover: '#e39b2d', cover2: '#9c4a10', art: '#2b1505', accent: '#f0a640', price: 28 },
+  forest:   { name: 'Forest',   cover: '#23463a', cover2: '#0d211a', art: '#ecdfc0', accent: '#8fc9a3', price: 32 },
+  oxblood:  { name: 'Oxblood',  cover: '#6e1a22', cover2: '#300910', art: '#f1c9a6', accent: '#ea8a7a', price: 45 }
+};
+const root = document.documentElement.style;
+document.querySelectorAll('.swatch').forEach(btn => btn.addEventListener('click', () => {
+  const e = EDITIONS[btn.dataset.ed];
+  root.setProperty('--cover', e.cover); root.setProperty('--cover-2', e.cover2);
+  root.setProperty('--art', e.art); root.setProperty('--accent', e.accent);
+  document.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', b === btn));
+  document.getElementById('edName').textContent = e.name;
+  document.getElementById('price').firstChild.nodeValue = '$' + e.price;
+  document.getElementById('price2').textContent = '$' + e.price;
+}));
+
+const stage = document.getElementById('stage'), book = document.getElementById('book3d'), floor = document.getElementById('floor');
+const shades = { front: book.querySelector('.front .shade'), back: book.querySelector('.back .shade'), spine: book.querySelector('.spine .shade'), fore: book.querySelector('.fore .shade') };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const REST = -24;
+let ry = REST, vy = 0, tiltX = 0, tiltY = 0, tx = 0, tyv = 0, t = 0, raf = 0, last = 0;
+let drag = null;
+
+stage.addEventListener('pointerdown', e => {
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, lt: performance.now(), active: false, type: e.pointerType };
+});
+window.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse') { tiltX = (e.clientX / innerWidth - .5) * 18; tiltY = -(e.clientY / innerHeight - .5) * 12; }
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.active) {
+    if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) { drag.active = true; stage.classList.add('dragging'); try { stage.setPointerCapture(e.pointerId); } catch (_) {} }
+    else if (Math.abs(dy) > 10) { drag = null; return; }
+    else return;
+  }
+  const now = performance.now(), step = (e.clientX - drag.lx) * 0.45;
+  ry += step; vy = step / Math.max(1, now - drag.lt) * 16;
+  drag.lx = e.clientX; drag.lt = now;
+});
+const endDrag = e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (!drag.active && e.type === 'pointerup' && drag.type !== 'mouse') book.classList.toggle('open');
+  if (!drag.active && e.type === 'pointerup' && drag.type === 'mouse' && e.target.closest('.book')) book.classList.toggle('open');
+  stage.classList.remove('dragging'); drag = null;
+};
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+book.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse' && !drag) book.classList.add('open'); });
+book.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !drag) book.classList.remove('open'); });
+book.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); book.classList.toggle('open'); }
+  if (e.key === 'ArrowLeft') vy -= 6;
+  if (e.key === 'ArrowRight') vy += 6;
+});
+
+const shadeFor = deg => { const c = Math.cos((deg + 35) * Math.PI / 180); return Math.max(0, .55 * (1 - c) / 2 + (c < 0 ? .1 : 0)); };
+function frame(now) {
+  const dt = Math.min(48, now - (last || now)) / 16.67; last = now;
+  if (!reduce) t += dt * 0.016;
+  if (!drag || !drag.active) {
+    ry += vy * dt; vy *= Math.pow(0.95, dt);
+    if (Math.abs(vy) < 0.4) {
+      const target = REST + 360 * Math.round((ry - REST) / 360);
+      ry += (target - ry) * 0.04 * dt; vy *= 0.9;
+    }
+  }
+  tx += (tiltX - tx) * 0.06 * dt; tyv += (tiltY - tyv) * 0.06 * dt;
+  const sway = reduce ? 0 : Math.sin(t * 1.3) * 5, float = reduce ? 0 : Math.sin(t * 2) * 8;
+  const rotY = ry + tx + sway, rotX = -10 + tyv + (reduce ? 0 : Math.cos(t * 1.6) * 2);
+  book.style.transform = `translateY(${float.toFixed(2)}px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg)`;
+  const r = rotY * Math.PI / 180, bw = book.offsetWidth, bd = 46;
+  const span = (Math.abs(Math.cos(r)) * bw + Math.abs(Math.sin(r)) * bd) / 300;
+  floor.style.transform = `scale(${(span * (1 - float / 120)).toFixed(3)}, ${(1 - float / 90).toFixed(3)})`;
+  floor.style.opacity = (0.85 - float / 60).toFixed(3);
+  shades.front.style.opacity = shadeFor(rotY); shades.back.style.opacity = shadeFor(rotY + 180);
+  shades.spine.style.opacity = shadeFor(rotY - 90); shades.fore.style.opacity = shadeFor(rotY + 90);
+  raf = requestAnimationFrame(frame);
+}
+const start = () => { if (!raf) { last = 0; raf = requestAnimationFrame(frame); } };
+document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else start(); });
+start();
+</script>
+</body>
+</html>

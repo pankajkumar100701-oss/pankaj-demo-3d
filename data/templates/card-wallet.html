@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<!--
+  Kestrel — Card Wallet (free template)
+  Customise: page colours + fonts live in the :root variables below. The cards in the
+  3D wallet come from the CARDS array in the <script> (name, perk, holder, last four,
+  gradient, ink colour, edge colour, holo strength). Card size: --cw.
+  No dependencies, no external requests — one file, works anywhere.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel — Card Wallet</title>
+<style>
+  :root {
+    --bg: #07080c;
+    --bg-2: #0e1018;
+    --panel: rgba(255, 255, 255, .035);
+    --ink: #eef0f7;
+    --muted: #8d93a6;
+    --line: rgba(238, 240, 247, .1);
+    --accent: #b9a6ff;
+    --accent-2: #74f0d2;
+    --accent-ink: #120d26;
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    --cw: clamp(220px, 27vw, 340px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; background: var(--bg); }
+  body {
+    font-family: var(--sans); color: var(--ink); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+    background:
+      radial-gradient(50rem 34rem at 78% 8%, rgba(185, 166, 255, .16), transparent 70%),
+      radial-gradient(40rem 30rem at 0% 40%, rgba(116, 240, 210, .07), transparent 70%), var(--bg);
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+  .wrap { width: min(1200px, 100% - 40px); margin-inline: auto; }
+
+  nav { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: rgba(7, 8, 12, .7); border-bottom: 1px solid var(--line); }
+  nav .wrap { display: flex; align-items: center; gap: 30px; height: 66px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 1.1rem; letter-spacing: -.01em; }
+  .logo svg { width: 28px; height: 28px; }
+  .links { display: flex; gap: 28px; margin-left: auto; font-size: .9rem; color: var(--muted); }
+  .links a:hover { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px; border-radius: 999px; font-weight: 600; font-size: .92rem; background: var(--ink); color: var(--bg); transition: transform .2s, box-shadow .2s; white-space: nowrap; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 34px -10px var(--accent); }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  nav .btn { padding: 9px 18px; font-size: .86rem; }
+
+  .hero { display: grid; grid-template-columns: 1fr 1.15fr; gap: 24px; align-items: center; min-height: calc(100svh - 66px); padding: 40px 0 56px; overflow: clip; }
+  .pill { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: .8rem; color: var(--muted); }
+  .pill b { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: var(--accent-ink); padding: 3px 10px; border-radius: 999px; font-size: .72rem; letter-spacing: .04em; }
+  h1 { font-size: clamp(2.6rem, 5.6vw, 4.9rem); line-height: .98; letter-spacing: -.045em; font-weight: 700; margin: 22px 0 20px; }
+  h1 span { background: linear-gradient(100deg, var(--accent) 10%, #f3c8ff 45%, var(--accent-2) 90%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { color: var(--muted); font-size: 1.08rem; max-width: 33rem; margin-bottom: 30px; }
+  .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .trust { display: flex; gap: 34px; margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .trust b { display: block; font-size: 1.5rem; letter-spacing: -.03em; }
+  .trust small { color: var(--muted); font-size: .8rem; }
+
+  /* 3D wallet */
+  .stage { position: relative; height: clamp(440px, 64vh, 600px); perspective: 1400px; perspective-origin: 50% 35%; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+  .glow { position: absolute; left: 50%; top: 55%; width: 80%; height: 50%; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(185, 166, 255, .28), transparent); filter: blur(10px); pointer-events: none; }
+  .deck { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; }
+  .card { position: absolute; width: var(--cw); height: calc(var(--cw) * .63); left: calc(var(--cw) / -2); top: calc(var(--cw) * -.315); transform-style: preserve-3d; cursor: pointer; --mx: 50%; --my: 30%; --dim: 0; }
+  .card .slice, .face { position: absolute; inset: 0; border-radius: calc(var(--cw) * .05); }
+  .slice { background: var(--edge); }
+  .face { overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: var(--bgc); color: var(--ink-c); box-shadow: 0 30px 50px -24px rgba(0, 0, 0, .8), inset 0 0 0 1px rgba(255, 255, 255, .14); }
+  .front { transform: translateZ(2.5px); }
+  .back { transform: rotateY(180deg) translateZ(2.5px); }
+  .face::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 5px); }
+  .holo { position: absolute; inset: -20%; opacity: var(--holo); mix-blend-mode: color-dodge;
+    background: linear-gradient(115deg, transparent 20%, #ff9ad5 34%, #a3f7ff 44%, #c9b3ff 52%, #fff2a8 60%, transparent 74%);
+    background-size: 220% 220%; background-position: var(--mx) var(--my); filter: saturate(1.2); }
+  .glare { position: absolute; inset: 0; mix-blend-mode: soft-light; background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, .85), transparent 48%); }
+  .dim { position: absolute; inset: 0; background: #05060a; opacity: var(--dim); pointer-events: none; }
+  .c-pad { position: absolute; inset: 0; padding: 7% 7.5%; display: flex; flex-direction: column; font-size: calc(var(--cw) * .042); }
+  .c-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .c-brand { display: flex; align-items: center; gap: .5em; font-weight: 700; font-size: 1.15em; letter-spacing: -.01em; }
+  .c-brand svg { width: 1.5em; height: 1.5em; }
+  .c-tier { font-size: .72em; letter-spacing: .24em; text-transform: uppercase; opacity: .8; }
+  .chip { width: 2.9em; height: 2.2em; margin-top: 1.6em; border-radius: .45em; position: relative;
+    background: linear-gradient(135deg, #f5dfa0, #c49a45 45%, #f1d68b 70%, #a77c32); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25); }
+  .chip::before { content: ""; position: absolute; inset: 22% 0; border-top: 1px solid rgba(70, 45, 10, .45); border-bottom: 1px solid rgba(70, 45, 10, .45); }
+  .chip::after { content: ""; position: absolute; inset: 0 34%; border-left: 1px solid rgba(70, 45, 10, .45); border-right: 1px solid rgba(70, 45, 10, .45); border-radius: .3em; }
+  .nfc { position: absolute; left: calc(7.5% + 3.6em); top: calc(7% + 3.05em); width: 1.5em; height: 1.5em; opacity: .75; }
+  .c-num { margin-top: auto; font-family: var(--mono); font-size: 1.12em; letter-spacing: .14em; text-shadow: 0 1px 0 rgba(0, 0, 0, .2); }
+  .c-bot { display: flex; justify-content: space-between; align-items: flex-end; margin-top: .6em; font-size: .78em; letter-spacing: .1em; text-transform: uppercase; }
+  .c-bot small { display: block; font-size: .7em; opacity: .6; letter-spacing: .16em; }
+  .net { font-weight: 800; font-style: italic; font-size: 1.5em; letter-spacing: -.02em; text-transform: none; }
+  .stripe { position: absolute; left: 0; right: 0; top: 12%; height: 19%; background: linear-gradient(180deg, #111, #2a2a2e 50%, #111); }
+  .sig { position: absolute; left: 7.5%; top: 42%; width: 62%; height: 15%; border-radius: .3em; background: repeating-linear-gradient(-20deg, #f3f0ea 0 5px, #e3ddd2 5px 10px); display: flex; align-items: center; justify-content: flex-end; padding-right: .6em; font: italic 600 1em var(--mono); color: #222; }
+  .cvv { position: absolute; left: 72%; top: 44%; font-family: var(--mono); font-size: .9em; }
+  .cvv small { display: block; font-size: .6em; letter-spacing: .2em; opacity: .6; font-family: var(--sans); }
+  .fine { position: absolute; left: 7.5%; right: 7.5%; bottom: 8%; font-size: .52em; line-height: 1.5; opacity: .65; }
+  .hologram { position: absolute; right: 7.5%; bottom: 28%; width: 3em; height: 2em; border-radius: .3em; background: linear-gradient(120deg, #ffd1f0, #b3f4ff, #d6c4ff, #fff3b0); opacity: .9; }
+
+  .cap { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; pointer-events: none; }
+  .cap-name { font-weight: 650; font-size: 1.05rem; letter-spacing: -.01em; }
+  .cap-note { color: var(--muted); font-size: .86rem; }
+  .cap-hint { margin-top: 6px; font-size: .68rem; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
+  .close { position: absolute; top: 8px; right: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(7, 8, 12, .6); font-size: .8rem; color: var(--muted); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 5; }
+  .stage.focused .close { opacity: 1; pointer-events: auto; }
+
+  section { padding: 96px 0; }
+  .eyebrow { font-size: .74rem; letter-spacing: .24em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  h2 { font-size: clamp(2rem, 4vw, 3.1rem); line-height: 1.05; letter-spacing: -.035em; font-weight: 700; max-width: 18ch; }
+  .sub { color: var(--muted); max-width: 40rem; margin-top: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+  .tile { padding: 28px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line); transition: border-color .3s, transform .3s; }
+  .tile:hover { border-color: rgba(185, 166, 255, .35); transform: translateY(-3px); }
+  .tile svg { width: 40px; height: 40px; padding: 9px; border-radius: 12px; background: rgba(185, 166, 255, .12); color: var(--accent); margin-bottom: 18px; }
+  .tile h3 { font-size: 1.08rem; letter-spacing: -.01em; margin-bottom: 6px; }
+  .tile p { color: var(--muted); font-size: .93rem; }
+
+  .rewards { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+  .cats { margin-top: 32px; display: grid; gap: 12px; }
+  .cat { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; font-size: .95rem; }
+  .cat b { font-size: 1.1rem; }
+  .meter { grid-column: 1 / -1; height: 6px; border-radius: 9px; background: var(--line); overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .tiers { display: grid; gap: 14px; }
+  .tier { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 22px 24px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); }
+  .tier.best { border-color: rgba(185, 166, 255, .5); background: linear-gradient(135deg, rgba(185, 166, 255, .12), rgba(116, 240, 210, .05)); }
+  .tier h3 { font-size: 1.1rem; }
+  .tier .price { font-size: 1.4rem; font-weight: 700; letter-spacing: -.02em; text-align: right; }
+  .tier .price small { font-size: .78rem; color: var(--muted); font-weight: 400; }
+  .tier p { grid-column: 1 / -1; color: var(--muted); font-size: .9rem; }
+
+  .app { display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: center; }
+  .checks { list-style: none; margin-top: 28px; display: grid; gap: 14px; }
+  .checks li { display: flex; gap: 12px; color: #c8ccda; }
+  .checks li::before { content: ""; flex: none; width: 20px; height: 20px; margin-top: 3px; border-radius: 50%; background: radial-gradient(circle, var(--accent-2) 30%, rgba(116, 240, 210, .18) 34%); }
+  .phone { width: min(310px, 100%); margin-inline: auto; aspect-ratio: 9 / 18.5; border-radius: 44px; padding: 12px; background: linear-gradient(160deg, #2a2d38, #0d0e13); box-shadow: 0 50px 90px -30px rgba(185, 166, 255, .35), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+  .screen { height: 100%; border-radius: 34px; background: linear-gradient(180deg, #141624, #0a0b10 60%); padding: 34px 18px 18px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; position: relative; }
+  .screen::before { content: ""; position: absolute; top: 10px; left: 50%; width: 84px; height: 22px; transform: translateX(-50%); border-radius: 20px; background: #000; }
+  .bal small { color: var(--muted); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+  .bal b { display: block; font-size: 1.9rem; letter-spacing: -.04em; }
+  .bal em { font-style: normal; color: var(--accent-2); font-size: .78rem; }
+  .bars { display: flex; align-items: flex-end; gap: 6px; height: 74px; padding: 10px; border-radius: 16px; background: rgba(255, 255, 255, .04); }
+  .bars i { flex: 1; border-radius: 4px; background: linear-gradient(180deg, var(--accent), rgba(185, 166, 255, .25)); }
+  .tx { display: grid; gap: 10px; font-size: .8rem; }
+  .tx div { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; }
+  .tx span { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: .72rem; }
+  .tx small { display: block; color: var(--muted); font-size: .68rem; }
+  .tx .pos { color: var(--accent-2); }
+
+  .cta { text-align: center; padding: 72px 28px; border-radius: 32px; border: 1px solid var(--line); background: radial-gradient(60% 120% at 50% 0%, rgba(185, 166, 255, .22), transparent 70%), var(--bg-2); }
+  .cta h2 { margin-inline: auto; }
+  .cta .sub { margin-inline: auto; margin-bottom: 28px; }
+  .cta .ctas { justify-content: center; }
+  footer { padding: 48px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
+  footer .wrap { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); gap: 32px; }
+  footer h4 { color: var(--ink); font-size: .85rem; margin-bottom: 10px; }
+  footer a { display: block; margin-bottom: 6px; }
+  footer a:hover { color: var(--ink); }
+  .legal { grid-column: 1 / -1; font-size: .74rem; line-height: 1.6; padding-top: 24px; border-top: 1px solid var(--line); opacity: .8; }
+
+  @media (max-width: 940px) {
+    .links { display: none; }
+    nav .btn { margin-left: auto; }
+    .hero { grid-template-columns: 1fr; min-height: 0; padding-top: 32px; }
+    .stage { height: 440px; }
+    .rewards, .app { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr 1fr; }
+    footer .wrap { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    :root { --cw: clamp(190px, 58vw, 260px); }
+    .wrap { width: calc(100% - 32px); }
+    .stage { height: 360px; order: -1; margin: -8px 0 -12px; }
+    .grid { grid-template-columns: 1fr; }
+    section { padding: 72px 0; }
+    .trust { gap: 22px; }
+    .tile { padding: 22px; }
+    .cta { padding: 52px 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 32 32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9b8ff"/><stop offset="1" stop-color="#74f0d2"/></linearGradient></defs><path d="M4 22 L16 4 L20 13 L28 10 L18 28 L14 19 Z" fill="url(#lg)"/></symbol>
+  <symbol id="nfc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 8a6 6 0 0 1 0 8"/><path d="M11 5.5a10 10 0 0 1 0 13"/><path d="M15 3a14 14 0 0 1 0 18"/></g></symbol>
+</svg>
+
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#"><svg><use href="#mark"/></svg>Kestrel</a>
+    <div class="links"><a href="#benefits">Benefits</a><a href="#rewards">Rewards</a><a href="#app">App</a><a href="#join">Pricing</a></div>
+    <a class="btn" href="#join">Open an account</a>
+  </div>
+</nav>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <span class="pill"><b>NEW</b> Kestrel Metal is here — 3% back on travel</span>
+      <h1>Money that moves <span>at your speed.</span></h1>
+      <p class="lede">One account, four beautiful cards, zero hidden fees. Spend anywhere in 150+ currencies, earn rewards that actually add up, and watch every penny in real time.</p>
+      <div class="ctas"><a class="btn" href="#join">Get your card</a><a class="btn ghost" href="#rewards">Compare cards</a></div>
+      <div class="trust">
+        <div><b>2.4M</b><small>members worldwide</small></div>
+        <div><b>4.6%</b><small>APY on Vaults</small></div>
+        <div><b>4.9★</b><small>App Store rating</small></div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="glow"></div>
+      <div class="deck" id="deck"></div>
+      <button class="close" id="close" type="button">← Back to wallet</button>
+      <div class="cap" aria-live="polite">
+        <div class="cap-name" id="capName">Your Kestrel wallet</div>
+        <div class="cap-note" id="capNote">Four cards, one account.</div>
+        <div class="cap-hint" id="capHint">Hover to fan · click a card</div>
+      </div>
+    </div>
+  </div>
+
+  <section id="benefits">
+    <div class="wrap">
+      <p class="eyebrow">Why Kestrel</p>
+      <h2>Banking that finally feels like it was built this decade.</h2>
+      <p class="sub">Everything you expect from a bank — and the things you've always wished one would do.</p>
+      <div class="grid">
+        <div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><h3>No FX fees, ever</h3><p>Pay like a local in 150+ currencies at the real mid-market rate. No markups, no weekend surprises.</p></div>
+        <div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><h3>Freeze in one tap</h3><p>Lost your card? Freeze it instantly, spin up a virtual replacement and keep spending in seconds.</p></div>
+        <div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><h3>Vaults that grow</h3><p>Round up purchases into savings Vaults earning 4.6% APY, paid daily and withdrawable any time.</p></div>
+        <div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/></svg><h3>Disposable cards</h3><p>Generate single-use card numbers for online checkouts and subscriptions you might forget about.</p></div>
+        <div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><h3>Paid two days early</h3><p>Set up direct deposit and your salary lands up to 48 hours before payday. Every single month.</p></div>
+        <div class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><h3>Humans, 24/7</h3><p>Real people answer in-app in under two minutes, day or night, in eleven languages.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="rewards">
+    <div class="wrap rewards">
+      <div>
+        <p class="eyebrow">Rewards</p>
+        <h2>Cashback that keeps up with your life.</h2>
+        <p class="sub">Rewards land in your account the moment a purchase settles — no points to decode, no portals, no expiry.</p>
+        <div class="cats">
+          <div class="cat"><span>Travel &amp; hotels</span><b>3%</b><div class="meter"><i style="width:100%"></i></div></div>
+          <div class="cat"><span>Dining &amp; delivery</span><b>2.5%</b><div class="meter"><i style="width:83%"></i></div></div>
+          <div class="cat"><span>Groceries</span><b>2%</b><div class="meter"><i style="width:66%"></i></div></div>
+          <div class="cat"><span>Streaming &amp; software</span><b>1.5%</b><div class="meter"><i style="width:50%"></i></div></div>
+          <div class="cat"><span>Everything else</span><b>1%</b><div class="meter"><i style="width:33%"></i></div></div>
+        </div>
+      </div>
+      <div class="tiers" id="join">
+        <div class="tier"><h3>Kestrel Glacier</h3><div class="price">$0<small>/mo</small></div><p>Free everyday account, 1% back on everything, fee-free ATM withdrawals up to $400 a month.</p></div>
+        <div class="tier"><h3>Kestrel Coral</h3><div class="price">$6<small>/mo</small></div><p>Boosted dining and grocery rewards, 4.6% APY Vaults and two free international transfers monthly.</p></div>
+        <div class="tier best"><h3>Kestrel Metal</h3><div class="price">$18<small>/mo</small></div><p>17g stainless steel card, 3% back on travel, airport lounge passes and worldwide travel insurance.</p></div>
+        <div class="tier"><h3>Kestrel Aurora</h3><div class="price">$12<small>/mo</small></div><p>Our holographic limited edition with 2% back on creative tools, plus a 1% donation to climate funds.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="app">
+    <div class="wrap app">
+      <div>
+        <p class="eyebrow">The app</p>
+        <h2>Your whole financial life, in one calm screen.</h2>
+        <p class="sub">Kestrel sorts spending automatically, nudges you before bills hit and turns saving into something you barely notice.</p>
+        <ul class="checks">
+          <li>Instant notifications with merchant logos and maps</li>
+          <li>Smart budgets that learn from your first month</li>
+          <li>Split bills with friends — even if they don't bank with us</li>
+          <li>Face ID, card freeze and location-based security</li>
+        </ul>
+      </div>
+      <div class="phone" aria-hidden="true">
+        <div class="screen">
+          <div class="bal"><small>Total balance</small><b>$12,480.36</b><em>▲ $642.10 this month</em></div>
+          <div class="bars"><i style="height:40%"></i><i style="height:62%"></i><i style="height:48%"></i><i style="height:80%"></i><i style="height:55%"></i><i style="height:95%"></i><i style="height:70%"></i></div>
+          <div class="tx">
+            <div><span style="background:#2d2650;color:#c9b8ff">AC</span><p>Aero Coffee<small>Today · Dining</small></p><b>−$5.40</b></div>
+            <div><span style="background:#173a33;color:#74f0d2">V</span><p>Vault round-up<small>Today · Savings</small></p><b class="pos">+$0.60</b></div>
+            <div><span style="background:#45231f;color:#ffb39a">NL</span><p>Northline Rail<small>Yesterday · Travel</small></p><b>−$38.20</b></div>
+            <div><span style="background:#173a33;color:#74f0d2">₭</span><p>Cashback<small>Yesterday · Rewards</small></p><b class="pos">+$1.15</b></div>
+            <div><span style="background:#22283a;color:#cbd5ff">FM</span><p>Fresh Market<small>Mon · Groceries</small></p><b>−$64.87</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="cta">
+        <p class="eyebrow">Join 2.4 million members</p>
+        <h2>Open an account in four minutes.</h2>
+        <p class="sub">No paperwork, no minimum balance and no credit check for Glacier. Your virtual card is ready the moment you're approved.</p>
+        <div class="ctas"><a class="btn" href="#">Get started — it's free</a><a class="btn ghost" href="#rewards">See all plans</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><a class="logo" href="#"><svg><use href="#mark"/></svg>Kestrel</a><p style="margin-top:10px;max-width:28ch">Modern money for people who'd rather be living their lives.</p></div>
+    <div><h4>Product</h4><a href="#">Cards</a><a href="#">Vaults</a><a href="#">Business</a></div>
+    <div><h4>Company</h4><a href="#">About</a><a href="#">Careers</a><a href="#">Press</a></div>
+    <div><h4>Support</h4><a href="#">Help centre</a><a href="#">Security</a><a href="#">Contact</a></div>
+    <p class="legal">Kestrel is a fictional financial technology company created for this template. Banking services would be provided by a licensed partner bank. APY is variable and may change. © 2026 Kestrel Money, Inc.</p>
+  </div>
+</footer>
+
+<script>
+const CARDS = [
+  { name: 'Kestrel Metal', perk: '3% back on travel · lounge access · 17g steel', tier: 'Metal', holder: 'Avery Chen', last: '4821', exp: '09/30',
+    bg: 'linear-gradient(135deg,#2a2a31 0%,#101014 45%,#2e2b33 75%,#141418 100%)', ink: '#ecdcb8', edge: '#4a443c', holo: .28 },
+  { name: 'Kestrel Aurora', perk: 'Holographic limited edition · 2% on creative tools', tier: 'Aurora', holder: 'Avery Chen', last: '0157', exp: '11/29',
+    bg: 'linear-gradient(125deg,#6b5cff 0%,#b07cf7 38%,#f1a7e4 62%,#5fe3cf 100%)', ink: '#ffffff', edge: '#8f7ff2', holo: .85 },
+  { name: 'Kestrel Coral', perk: '2.5% back on dining · 4.6% APY Vaults', tier: 'Coral', holder: 'Avery Chen', last: '7340', exp: '04/31',
+    bg: 'linear-gradient(140deg,#ff8a5c 0%,#ff4f7e 55%,#c2337a 100%)', ink: '#fff6f1', edge: '#d9455f', holo: .45 },
+  { name: 'Kestrel Glacier', perk: 'Free forever · 1% back on everything', tier: 'Glacier', holder: 'Avery Chen', last: '2266', exp: '02/30',
+    bg: 'linear-gradient(135deg,#f6f8fc 0%,#d6dce8 48%,#eef1f7 100%)', ink: '#1c2030', edge: '#b9c0ce', holo: .55 },
+];
+
+const stage = document.getElementById('stage'), deck = document.getElementById('deck');
+const capName = document.getElementById('capName'), capNote = document.getElementById('capNote'), capHint = document.getElementById('capHint');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const els = CARDS.map((c, i) => {
+  const el = document.createElement('div');
+  el.className = 'card'; el.tabIndex = 0; el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', c.name + ' — show card details');
+  el.style.cssText = `--bgc:${c.bg};--ink-c:${c.ink};--edge:${c.edge};--holo:${c.holo}`;
+  const slices = [-1.5, -.5, .5, 1.5].map(z => `<div class="slice" style="transform:translateZ(${z}px)"></div>`).join('');
+  el.innerHTML = slices + `
+    <div class="face front"><div class="holo"></div>
+      <div class="c-pad">
+        <div class="c-top"><div class="c-brand"><svg><use href="#mark"/></svg>Kestrel</div><div class="c-tier">${c.tier}</div></div>
+        <div class="chip"></div>
+        <div class="c-num">•••• •••• •••• ${c.last}</div>
+        <div class="c-bot"><div><small>Card holder</small>${c.holder}</div><div><small>Expires</small>${c.exp}</div><div class="net">vela</div></div>
+      </div>
+      <svg class="nfc"><use href="#nfc"/></svg>
+      <div class="glare"></div><div class="dim"></div></div>
+    <div class="face back"><div class="c-pad" style="padding:0">
+      <div class="stripe"></div><div class="sig">${c.holder.split(' ')[0]}</div>
+      <div class="cvv"><small>CVV</small>•••</div><div class="hologram"></div>
+      <div class="fine">${c.name} · Issued by Kestrel Partner Bank, N.A. Lost or stolen? Freeze instantly in the app or call +1 (800) 555-0142. Use subject to the cardholder agreement.</div>
+    </div><div class="glare"></div><div class="dim"></div></div>`;
+  deck.appendChild(el);
+  return el;
+});
+
+// animated state per card
+const S = els.map(() => ({ x: 0, y: 0, z: 0, rx: 50, ry: 0, rz: -14, dim: 0 }));
+let mode = 'rest', focus = -1, flipped = true, hover = -1, px = 0, py = 0, tpx = 0, tpy = 0, pointerIn = false, lastType = 'mouse';
+const D = Math.PI / 180;
+
+function target(i, t) {
+  const cw = els[0].offsetWidth, n = CARDS.length, small = stage.offsetWidth < 520;
+  const bob = reduce ? 0 : Math.sin(t * 1.2 + i * .9) * 5;
+  if (mode === 'focus') {
+    if (i === focus) return { x: 0, y: -cw * .08, z: 150, rx: -py * 12, ry: (flipped ? 180 : 0) + px * 18, rz: 0, dim: 0 };
+    return { x: (i - focus) * 18, y: cw * .1 - i * 20, z: -300 - i * 70, rx: 44, ry: 0, rz: -14, dim: .55 };
+  }
+  if (mode === 'fan') {
+    const step = small ? 10 : 15, a = ((n - 1) / 2 - i) * step, R = cw * (small ? .95 : 1.15);
+    const lift = i === hover ? 1 : 0;
+    return { x: R * Math.sin(a * D) - cw * (small ? 0 : .12), y: R * (1 - Math.cos(a * D)) - cw * .05 - lift * 26, z: -i * 26 + lift * 40,
+      rx: 16 - py * 10, ry: px * 14, rz: a, dim: 0 };
+  }
+  // each card sits behind the previous one's tilted plane (dz > dy * tan(rx)) so they never intersect
+  return { x: cw * (.04 - i * .05) + px * 10, y: cw * ((small ? .08 : .22) - i * .13) + bob, z: -i * (cw * .13 + 26), rx: 44 - py * 6, ry: -4 + px * 8, rz: -14, dim: i * .1 };
+}
+
+function applyCaption() {
+  if (mode === 'focus') {
+    const c = CARDS[focus];
+    capName.textContent = c.name; capNote.textContent = c.perk;
+    capHint.textContent = flipped ? 'Click card to flip · Esc to close' : 'Click card to flip back';
+  } else {
+    capName.textContent = 'Your Kestrel wallet'; capNote.textContent = 'Four cards, one account.';
+    capHint.textContent = mode === 'fan' ? 'Pick a card to see the back' : 'Hover or tap to fan · click a card';
+  }
+  stage.classList.toggle('focused', mode === 'focus');
+}
+function setMode(m, i) { mode = m; if (m === 'focus') { focus = i; flipped = true; } applyCaption(); }
+
+els.forEach((el, i) => {
+  el.addEventListener('pointerenter', () => { hover = i; });
+  el.addEventListener('pointerleave', () => { if (hover === i) hover = -1; });
+  const act = () => {
+    if (mode === 'focus' && focus === i) { flipped = !flipped; applyCaption(); }
+    else if (mode === 'rest' && lastType !== 'mouse') setMode('fan');
+    else setMode('focus', i);
+  };
+  el.addEventListener('click', e => { e.stopPropagation(); act(); });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lastType = 'key'; mode === 'rest' ? setMode('focus', i) : act(); } });
+});
+stage.addEventListener('pointerdown', e => { lastType = e.pointerType; });
+stage.addEventListener('click', () => { if (mode === 'focus') setMode(pointerIn && lastType === 'mouse' ? 'fan' : 'rest'); else if (mode === 'rest') setMode('fan'); else if (lastType !== 'mouse') setMode('rest'); });
+document.getElementById('close').addEventListener('click', e => { e.stopPropagation(); setMode('rest'); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && mode === 'focus') setMode('rest'); });
+stage.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { pointerIn = true; if (mode === 'rest') setMode('fan'); } });
+stage.addEventListener('pointerleave', e => { pointerIn = false; tpx = tpy = 0; hover = -1; if (e.pointerType === 'mouse' && mode === 'fan') setMode('rest'); });
+stage.addEventListener('pointermove', e => {
+  const r = stage.getBoundingClientRect();
+  tpx = ((e.clientX - r.left) / r.width - .5) * 2; tpy = ((e.clientY - r.top) / r.height - .5) * 2;
+  els.forEach(el => {
+    const b = el.getBoundingClientRect();
+    el.style.setProperty('--mx', ((e.clientX - b.left) / b.width * 100).toFixed(1) + '%');
+    el.style.setProperty('--my', ((e.clientY - b.top) / b.height * 100).toFixed(1) + '%');
+  });
+});
+
+let raf = 0, last = 0, t = 0;
+function frame(now) {
+  const dt = Math.min(50, now - (last || now)) / 16.67; last = now; t += dt * .016;
+  const k = reduce ? 1 : 1 - Math.pow(.88, dt);
+  px += (tpx - px) * k; py += (tpy - py) * k;
+  els.forEach((el, i) => {
+    const s = S[i], g = target(i, t);
+    for (const p in g) s[p] += (g[p] - s[p]) * k;
+    el.style.transform = `translate3d(${s.x.toFixed(2)}px,${s.y.toFixed(2)}px,${s.z.toFixed(2)}px) rotateZ(${s.rz.toFixed(2)}deg) rotateX(${s.rx.toFixed(2)}deg) rotateY(${s.ry.toFixed(2)}deg)`;
+    el.style.setProperty('--dim', s.dim.toFixed(3));
+    el.style.zIndex = mode === 'focus' && i === focus ? 10 : CARDS.length - i;
+    if (!pointerIn && !reduce) {
+      el.style.setProperty('--mx', (50 + Math.sin(t * .7 + i * 1.3) * 45).toFixed(1) + '%');
+      el.style.setProperty('--my', (40 + Math.cos(t * .5 + i) * 35).toFixed(1) + '%');
+    }
+  });
+  raf = requestAnimationFrame(frame);
+}
+const start = () => { if (!raf) { last = 0; raf = requestAnimationFrame(frame); } };
+document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else start(); });
+// paint the resting pose immediately so the first frame already looks finished
+els.forEach((el, i) => Object.assign(S[i], target(i, 0)));
+start();
+</script>
+</body>
+</html>

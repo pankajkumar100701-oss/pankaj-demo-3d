@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opaline — Liquid Blob</title>
+<!--
+  Customise: edit the colour tokens in :root. The WebGL blob reads --pearl,
+  --blush, --lilac and --aqua at startup, so its iridescent sheen always matches
+  the page. Blob size, speed, pointer pull and render quality live in CONFIG at
+  the top of the script. Products, ingredients and reviews are plain HTML.
+-->
+<style>
+  :root {
+    --bg: #f6efe9;        /* page cream */
+    --bg-2: #efe4dc;      /* section tint */
+    --ink: #2a1f24;       /* text */
+    --muted: rgb(42 31 36 / 0.62);
+    --line: rgb(42 31 36 / 0.1);
+    --pearl: #fbf6f2;     /* blob base */
+    --blush: #f3a6b8;     /* iridescence 1 */
+    --lilac: #b9a6f2;     /* iridescence 2 */
+    --aqua: #9fdcd6;      /* iridescence 3 */
+    --accent: #b0566f;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.55; overflow-x: clip; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1180px, 100% - 40px); margin-inline: auto; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: 999px; font-weight: 600; font-size: 15px; transition: transform .25s, box-shadow .25s, background .25s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn.dark { background: var(--ink); color: var(--pearl); box-shadow: 0 14px 34px -14px rgb(42 31 36 / .6); }
+  .btn.soft { background: rgb(255 255 255 / .55); border: 1px solid var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .eyebrow { font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(34px, 5vw, 56px); line-height: 1.05; text-wrap: balance; }
+  h2 em, h1 em { font-style: italic; color: var(--accent); }
+
+  /* Nav */
+  nav { position: absolute; inset: 0 0 auto; z-index: 10; padding: 22px 0; }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 24px; letter-spacing: .01em; }
+  .logo i { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 32% 30%, #fff 0 18%, var(--blush) 45%, var(--lilac) 70%, var(--aqua)); box-shadow: inset -2px -3px 6px rgb(0 0 0 / .12); }
+  .links { display: flex; gap: 30px; font-size: 14px; color: var(--muted); }
+  .links a:hover { color: var(--ink); }
+  nav .btn { height: 40px; padding: 0 18px; font-size: 14px; }
+
+  /* Hero */
+  .hero { position: relative; min-height: 100vh; min-height: 100svh; overflow: hidden;
+    background:
+      radial-gradient(42% 50% at 72% 46%, color-mix(in srgb, var(--blush) 38%, transparent), transparent 70%),
+      radial-gradient(30% 40% at 88% 18%, color-mix(in srgb, var(--lilac) 40%, transparent), transparent 70%),
+      radial-gradient(40% 40% at 10% 90%, color-mix(in srgb, var(--aqua) 28%, transparent), transparent 70%),
+      var(--bg); }
+  #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
+  .fallback { display: none; position: absolute; left: 70%; top: 48%; width: min(46vw, 520px); aspect-ratio: 1; translate: -50% -50%; border-radius: 47% 53% 44% 56% / 52% 46% 54% 48%;
+    background: radial-gradient(circle at 34% 28%, #fff 0 8%, transparent 26%), radial-gradient(circle at 70% 75%, color-mix(in srgb, var(--aqua) 80%, transparent), transparent 55%), conic-gradient(from 210deg, var(--blush), var(--lilac), var(--aqua), var(--pearl), var(--blush));
+    box-shadow: inset -30px -40px 80px rgb(120 80 120 / .25), inset 20px 30px 60px rgb(255 255 255 / .6), 0 60px 90px -40px rgb(120 60 90 / .45); }
+  .hero.no-gl .fallback { display: block; }
+  .hero.no-gl #gl { display: none; }
+  .hero-in { position: relative; z-index: 2; min-height: inherit; display: grid; align-content: center; padding: 120px 0 70px; pointer-events: none; }
+  .hero-in > * { pointer-events: auto; }
+  .hero-copy { max-width: 540px; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; background: rgb(255 255 255 / .6); border: 1px solid var(--line); font-size: 13px; color: var(--muted); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .tag b { background: var(--ink); color: var(--pearl); border-radius: 999px; padding: 3px 10px; font-size: 11px; letter-spacing: .08em; font-weight: 600; }
+  h1 { font-size: clamp(48px, 7.6vw, 104px); line-height: .98; margin: 24px 0 22px; letter-spacing: -0.035em; }
+  .hero p.sub { font-size: clamp(16px, 1.5vw, 19px); color: var(--muted); max-width: 440px; text-wrap: pretty; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+  .proof { display: flex; gap: 28px; margin-top: 48px; flex-wrap: wrap; }
+  .proof div { font-size: 13px; color: var(--muted); max-width: 140px; line-height: 1.4; }
+  .proof strong { display: block; font-family: var(--serif); font-weight: 400; font-size: 34px; color: var(--ink); letter-spacing: -0.03em; line-height: 1.1; }
+  .hint { position: absolute; right: clamp(20px, 6vw, 80px); bottom: 34px; z-index: 2; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+  .hint::before { content: ""; width: 34px; height: 1px; background: currentColor; }
+
+  /* Marquee strip */
+  .strip { border-block: 1px solid var(--line); padding: 18px 0; overflow: hidden; background: var(--pearl); }
+  .strip div { display: flex; gap: 48px; width: max-content; animation: slide 38s linear infinite; font-family: var(--serif); font-style: italic; font-size: 22px; color: var(--muted); white-space: nowrap; }
+  .strip span::after { content: "✦"; font-style: normal; font-size: 12px; margin-left: 48px; color: var(--accent); vertical-align: middle; }
+  @keyframes slide { to { transform: translateX(-50%); } }
+
+  section { padding: clamp(80px, 12vw, 140px) 0; }
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; margin-bottom: 52px; }
+  .head p { max-width: 380px; color: var(--muted); }
+
+  /* Products */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  .card { background: var(--pearl); border: 1px solid var(--line); border-radius: 28px; padding: 18px 18px 24px; transition: transform .35s, box-shadow .35s; }
+  .card:hover { transform: translateY(-6px); box-shadow: 0 30px 60px -30px rgb(90 50 70 / .35); }
+  .shot { height: 300px; border-radius: 20px; display: grid; place-items: end center; padding-bottom: 34px; position: relative; overflow: hidden; background: radial-gradient(70% 60% at 50% 40%, color-mix(in srgb, var(--c) 45%, #fff), color-mix(in srgb, var(--c) 18%, var(--bg-2))); }
+  .shot::after { content: ""; position: absolute; bottom: 26px; width: 60%; height: 18px; border-radius: 50%; background: rgb(60 30 40 / .18); filter: blur(8px); }
+  .bottle { position: relative; z-index: 1; width: var(--w, 74px); height: var(--h, 170px); border-radius: var(--r, 14px 14px 18px 18px); background: linear-gradient(90deg, rgb(255 255 255 / .2), rgb(255 255 255 / .75) 22%, rgb(255 255 255 / .25) 40%, rgb(0 0 0 / .05) 85%), color-mix(in srgb, var(--c) 70%, #fff); box-shadow: inset 0 -30px 40px -20px color-mix(in srgb, var(--c) 80%, #000 10%); }
+  .bottle::before { content: ""; position: absolute; left: 50%; translate: -50% 0; top: var(--capt, -46px); width: var(--capw, 34px); height: var(--caph, 48px); border-radius: 8px 8px 4px 4px; background: linear-gradient(90deg, #2c2328, #5b4b52 30%, #2c2328); }
+  .bottle::after { content: "OPALINE"; position: absolute; left: 0; right: 0; top: 42%; text-align: center; font-family: var(--serif); font-size: 9px; letter-spacing: .3em; color: rgb(42 31 36 / .7); }
+  .meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 20px; gap: 12px; }
+  .meta h3 { font-size: 24px; }
+  .meta b { font-weight: 600; }
+  .card p { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .chips { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .chips span { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+
+  /* Ingredients */
+  .ingr { background: var(--ink); color: var(--pearl); border-radius: clamp(28px, 4vw, 48px); margin: 0 clamp(8px, 2vw, 24px); position: relative; overflow: hidden; }
+  .ingr::before { content: ""; position: absolute; width: 640px; height: 640px; right: -200px; top: -260px; border-radius: 50%; background: conic-gradient(from 90deg, var(--blush), var(--lilac), var(--aqua), var(--blush)); filter: blur(90px); opacity: .35; }
+  .ingr .wrap { position: relative; }
+  .ingr .head p { color: rgb(251 246 242 / .65); }
+  .ingr .eyebrow { color: var(--blush); }
+  .ingr h2 em { color: var(--blush); }
+  .list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid rgb(255 255 255 / .14); }
+  .list div { padding: 30px 24px 10px 0; }
+  .list div + div { padding-left: 24px; border-left: 1px solid rgb(255 255 255 / .14); }
+  .list svg { width: 40px; height: 40px; margin-bottom: 22px; }
+  .list h3 { font-size: 26px; margin-bottom: 8px; }
+  .list small { display: block; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--aqua); margin-bottom: 10px; }
+  .list p { color: rgb(251 246 242 / .65); font-size: 14px; }
+
+  /* Reviews */
+  .reviews { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 22px; }
+  .rev { border-radius: 28px; padding: 30px; background: var(--pearl); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 22px; }
+  .rev.big { background: linear-gradient(150deg, color-mix(in srgb, var(--blush) 40%, var(--pearl)), color-mix(in srgb, var(--lilac) 35%, var(--pearl))); }
+  .stars { color: var(--accent); letter-spacing: 3px; font-size: 14px; }
+  .rev q { font-family: var(--serif); font-size: 21px; line-height: 1.35; quotes: "“" "”"; flex: 1; }
+  .rev.big q { font-size: clamp(24px, 2.4vw, 30px); }
+  .who { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+  .who i { width: 40px; height: 40px; border-radius: 50%; background: var(--g); flex: none; }
+  .who span { display: block; color: var(--muted); font-size: 12px; }
+
+  /* CTA + footer */
+  .join { text-align: center; padding-top: 0; }
+  .join h2 { max-width: 720px; margin: 18px auto 18px; }
+  .join p { color: var(--muted); max-width: 460px; margin: 0 auto 30px; }
+  form { display: flex; gap: 8px; max-width: 460px; margin: 0 auto; padding: 6px; border-radius: 999px; background: var(--pearl); border: 1px solid var(--line); }
+  input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; padding: 0 16px; color: var(--ink); outline: none; }
+  footer { border-top: 1px solid var(--line); padding: 34px 0 44px; font-size: 13px; color: var(--muted); }
+  footer .wrap { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: center; }
+  footer nav { position: static; padding: 0; display: flex; gap: 22px; }
+
+  @media (max-width: 900px) {
+    .links { display: none; }
+    .grid { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; }
+    .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .list div:nth-child(3) { border-left: 0; padding-left: 0; }
+    .list div:nth-child(n+3) { border-top: 1px solid rgb(255 255 255 / .14); }
+    .reviews { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .hero-in { align-content: end; padding: 0 0 48px; min-height: 100svh; }
+    .hero-copy { padding-top: 46vh; }
+    h1 { margin-top: 16px; }
+    .proof { margin-top: 32px; gap: 20px; }
+    .proof strong { font-size: 28px; }
+    .hint { display: none; }
+    .fallback { left: 50%; top: 27%; width: 74vw; }
+  }
+  @media (max-width: 480px) {
+    .list { grid-template-columns: 1fr; }
+    .list div, .list div + div { padding-left: 0; border-left: 0; }
+    .list div + div { border-top: 1px solid rgb(255 255 255 / .14); }
+    nav .btn { display: none; }
+    .ctas .btn { flex: 1; padding: 0 14px; white-space: nowrap; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .strip div { animation: none; }
+    .card, .btn { transition: none; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a href="#" class="logo"><i></i>Opaline</a>
+    <div class="links"><a href="#shop">Shop</a><a href="#ingredients">Ingredients</a><a href="#reviews">Reviews</a><a href="#journal">Journal</a></div>
+    <a href="#shop" class="btn dark">Bag · 0</a>
+  </div>
+</nav>
+
+<header class="hero" id="hero">
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="fallback" aria-hidden="true"></div>
+  <div class="wrap hero-in">
+    <div class="hero-copy">
+      <span class="tag"><b>NEW</b> The Dew Serum, now in refill glass</span>
+      <h1>Skin that <em>holds</em> the light.</h1>
+      <p class="sub">Weightless, lipid-rich formulas that melt into skin and leave a lit-from-within finish — engineered in Copenhagen, gentle enough for every day.</p>
+      <div class="ctas"><a href="#shop" class="btn dark">Shop the ritual</a><a href="#ingredients" class="btn soft">What's inside</a></div>
+      <div class="proof">
+        <div><strong>94%</strong>saw plumper skin in 14 days</div>
+        <div><strong>0</strong>fragrance, alcohol or fillers</div>
+        <div><strong>4.9</strong>from 12,800 reviews</div>
+      </div>
+    </div>
+  </div>
+  <span class="hint">Move to touch the serum</span>
+</header>
+
+<div class="strip" aria-hidden="true"><div>
+  <span>Barrier-first skincare</span><span>Dermatologist tested</span><span>Refillable glass</span><span>Vegan &amp; cruelty-free</span><span>Made in small batches</span>
+  <span>Barrier-first skincare</span><span>Dermatologist tested</span><span>Refillable glass</span><span>Vegan &amp; cruelty-free</span><span>Made in small batches</span>
+</div></div>
+
+<section id="shop">
+  <div class="wrap">
+    <div class="head">
+      <div><p class="eyebrow">The ritual</p><h2 style="margin-top:14px">Three steps. <em>Endless</em> glow.</h2></div>
+      <p>Each formula is built to layer — a cleanse that never strips, a serum that floods skin with water, and a balm that seals it all in.</p>
+    </div>
+    <div class="grid">
+      <article class="card">
+        <div class="shot" style="--c: var(--aqua)"><div class="bottle" style="--w:84px;--h:150px;--r:42px 42px 20px 20px;--capt:-30px;--capw:46px;--caph:32px"></div></div>
+        <div class="meta"><h3>Cloud Cleanse</h3><b>$34</b></div>
+        <p>A cushiony milk that lifts sunscreen and city grime without a hint of tightness.</p>
+        <div class="chips"><span>Oat lipids</span><span>150 ml</span></div>
+      </article>
+      <article class="card">
+        <div class="shot" style="--c: var(--blush)"><div class="bottle" style="--w:62px;--h:170px;--capt:-58px;--capw:22px;--caph:60px"></div></div>
+        <div class="meta"><h3>Dew Serum</h3><b>$58</b></div>
+        <p>Five weights of hyaluronic acid and squalane for a glassy, bouncy finish.</p>
+        <div class="chips"><span>Bestseller</span><span>30 ml</span></div>
+      </article>
+      <article class="card">
+        <div class="shot" style="--c: var(--lilac)"><div class="bottle" style="--w:120px;--h:84px;--r:22px;--capt:-34px;--capw:128px;--caph:36px"></div></div>
+        <div class="meta"><h3>Night Balm</h3><b>$46</b></div>
+        <p>A velvet seal of ceramides and bakuchiol that works while you sleep.</p>
+        <div class="chips"><span>Retinol-free</span><span>50 ml</span></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="ingr" id="ingredients">
+  <div class="wrap">
+    <div class="head">
+      <div><p class="eyebrow">What's inside</p><h2 style="margin-top:14px">Clinically dosed, <em>never</em> diluted.</h2></div>
+      <p>We publish every percentage on the bottle. Four hero actives do the heavy lifting; everything else is there to help them work.</p>
+    </div>
+    <div class="list">
+      <div>
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M20 5c6 8 10 13 10 19a10 10 0 0 1-20 0c0-6 4-11 10-19z"/><path d="M15 25a5 5 0 0 0 5 5" opacity=".6"/></svg>
+        <small>2% complex</small><h3>Hyaluronic acid</h3><p>Five molecular weights hydrate every layer, from surface to deep.</p>
+      </div>
+      <div>
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="20" cy="20" r="13"/><circle cx="20" cy="20" r="7" opacity=".6"/><circle cx="20" cy="20" r="2"/></svg>
+        <small>3% blend</small><h3>Ceramides</h3><p>Skin-identical lipids that rebuild a stressed, reactive barrier.</p>
+      </div>
+      <div>
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M20 34V14"/><path d="M20 22c-7 0-11-5-11-11 7 0 11 4 11 11zM20 18c0-6 4-10 11-10 0 6-4 10-11 10z"/></svg>
+        <small>1% plant-derived</small><h3>Bakuchiol</h3><p>Retinol-like smoothing with none of the sting, safe for daytime.</p>
+      </div>
+      <div>
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 26c4-3 8-3 12 0s8 3 12 0M8 18c4-3 8-3 12 0s8 3 12 0" /><path d="M8 10c4-3 8-3 12 0s8 3 12 0" opacity=".6"/></svg>
+        <small>5% olive</small><h3>Squalane</h3><p>A featherlight oil that mirrors your own sebum — no grease, all glow.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="reviews">
+  <div class="wrap">
+    <div class="head">
+      <div><p class="eyebrow">Reviews</p><h2 style="margin-top:14px">Loved by <em>sensitive</em> skin.</h2></div>
+      <p>4.9 average across 12,800 verified reviews — and a 60-day return window if it's not for you.</p>
+    </div>
+    <div class="reviews">
+      <figure class="rev big">
+        <div class="stars">★★★★★</div>
+        <q>I've had rosacea for a decade. Two weeks into the Dew Serum my skin stopped stinging and started glowing. I genuinely didn't think that was possible.</q>
+        <figcaption class="who"><i style="--g: linear-gradient(135deg, #f3a6b8, #b9a6f2)"></i><div>Amara Lindqvist<span>Verified · Dew Serum</span></div></figcaption>
+      </figure>
+      <figure class="rev">
+        <div class="stars">★★★★★</div>
+        <q>The cleanser feels like a cloud. My makeup slides off and my face never feels tight.</q>
+        <figcaption class="who"><i style="--g: linear-gradient(135deg, #9fdcd6, #f6efe9)"></i><div>Jun Park<span>Verified · Cloud Cleanse</span></div></figcaption>
+      </figure>
+      <figure class="rev">
+        <div class="stars">★★★★★</div>
+        <q>Woke up looking like I'd slept ten hours. The balm is my one non-negotiable now.</q>
+        <figcaption class="who"><i style="--g: linear-gradient(135deg, #b0566f, #f3a6b8)"></i><div>Priya Raman<span>Verified · Night Balm</span></div></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="join" id="journal">
+  <div class="wrap">
+    <p class="eyebrow">The Opaline letter</p>
+    <h2>Fewer products. <em>Better</em> skin.</h2>
+    <p>Monthly notes from our chemists, early access to new formulas, and 15% off your first ritual.</p>
+    <form onsubmit="event.preventDefault(); this.querySelector('button').textContent = 'You\'re in ✓';">
+      <input type="email" placeholder="Your email address" aria-label="Email address" required>
+      <button class="btn dark" style="border:0;cursor:pointer;font:inherit;font-weight:600">Subscribe</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a href="#" class="logo" style="font-size:20px"><i></i>Opaline</a>
+    <nav><a href="#">Stockists</a><a href="#">Refills</a><a href="#">Contact</a><a href="#">Instagram</a></nav>
+    <span>© 2026 Opaline Skin ApS · Copenhagen</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // size: blob radius as a fraction of the shorter hero side. quality: render scale (0.3–1).
+  const CONFIG = { speed: 0.55, pull: 1, size: 0.4, quality: 0.6 };
+
+  const hero = document.getElementById('hero');
+  const canvas = document.getElementById('gl');
+  const gl = canvas.getContext('webgl', { antialias: false, premultipliedAlpha: true, alpha: true });
+  if (!gl) { hero.classList.add('no-gl'); return; }
+
+  const probe = document.createElement('span');
+  document.body.appendChild(probe);
+  const cssColor = (name) => {
+    probe.style.color = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const m = getComputedStyle(probe).color.match(/[\d.]+/g) || [0, 0, 0];
+    return m.slice(0, 3).map((v) => +v / 255);
+  };
+
+  const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }';
+  const FS = `precision highp float;
+    uniform vec2 uRes, uCenter, uMouse; uniform float uTime, uScale, uPull;
+    uniform vec3 uPearl, uBlush, uLilac, uAqua;
+    float smin(float a, float b, float k){ float h = clamp(.5 + .5 * (b - a) / k, 0., 1.); return mix(b, a, h) - k * h * (1. - h); }
+    float map(vec3 p){
+      float t = uTime;
+      float d = length(p) - .62 + .045 * sin(3.1 * p.x + t * 1.3) * sin(2.7 * p.y + t) * sin(2.9 * p.z + t * .8);
+      d = smin(d, length(p - vec3(.52 * sin(t * .7), .38 * cos(t * .9), .3 * sin(t * .5))) - .3, .38);
+      d = smin(d, length(p - vec3(-.5 * cos(t * .6), -.42 * sin(t * .8), .22 * cos(t * .4))) - .27, .38);
+      d = smin(d, length(p - vec3(.34 * cos(t * .5 + 2.), .5 * sin(t * .6 + 1.), -.3)) - .23, .32);
+      vec3 m = vec3(uMouse, .3);
+      d = smin(d, length(p - m) - .2 * uPull, .5 * uPull + .001);
+      return d;
+    }
+    vec3 nrm(vec3 p){
+      const vec2 k = vec2(1., -1.) * .0015;
+      return normalize(k.xyy * map(p + k.xyy) + k.yyx * map(p + k.yyx) + k.yxy * map(p + k.yxy) + k.xxx * map(p + k.xxx));
+    }
+    vec3 env(vec3 r){
+      float y = r.y * .5 + .5;
+      vec3 c = mix(uLilac * .85, uPearl, smoothstep(.15, .85, y));
+      c += smoothstep(.8, .97, r.y) * smoothstep(.45, .05, abs(r.x + .3)) * .7;   // softbox above
+      c += smoothstep(.55, .9, -r.x) * smoothstep(.5, 0., abs(r.y - .1)) * .45;   // side window
+      c = mix(c, uBlush, smoothstep(.2, -.6, r.y) * .5);
+      return c;
+    }
+    void main(){
+      vec2 uv = (gl_FragCoord.xy - uCenter) / uScale;
+      vec3 ro = vec3(0., 0., 3.2), rd = normalize(vec3(uv * .5, -1.6));
+      // Bounding sphere test keeps the march cheap for empty pixels.
+      float b = dot(ro, rd), c = dot(ro, ro) - 1.7 * 1.7, h = b * b - c;
+      vec4 col = vec4(0.);
+      float glow = 0.;
+      if (h > 0.){
+        float t = -b - sqrt(h), md = 9., tm = t;
+        float px = 2.6 / uScale;   // ~1 pixel in world units, for soft edges
+        for (int i = 0; i < 56; i++){
+          float d = map(ro + rd * t);
+          if (d < md){ md = d; tm = t; }
+          if (d < .002) break;
+          t += d * .9;
+          if (t > 5.) break;
+        }
+        glow = exp(-max(md, 0.) * 7.) * .35;
+        if (md < px){
+          vec3 p = ro + rd * tm, n = nrm(p), v = -rd;
+          float ndv = clamp(dot(n, v), 0., 1.);
+          float fres = pow(1. - ndv, 3.);
+          // Thin-film iridescence: hue shifts with view angle and surface tilt.
+          float film = ndv * 1.4 + n.y * .35 + n.x * .2 + uTime * .04;
+          vec3 irid = .5 + .5 * cos(6.2832 * (film + vec3(0., .33, .67)));
+          irid = mix(uBlush, mix(uLilac, uAqua, irid.g), irid.r);
+          vec3 r = reflect(rd, n);
+          vec3 base = mix(uPearl, irid, .5 + .4 * fres);
+          vec3 lit = base * (.72 + .38 * clamp(dot(n, normalize(vec3(-.4, .8, .6))), 0., 1.));
+          lit = mix(lit, env(r), .28 + .45 * fres);
+          float spec = pow(clamp(dot(r, normalize(vec3(-.35, .7, .6))), 0., 1.), 90.);
+          float spec2 = pow(clamp(dot(r, normalize(vec3(.7, -.2, .7))), 0., 1.), 24.) * .4;
+          lit += spec * 1.1 + spec2 * uAqua;
+          lit += irid * fres * .5;
+          lit += uBlush * .1 * (1. - ndv);
+          float a = 1. - smoothstep(0., px, md);
+          col = vec4(min(lit, 1.) * a, a);
+        }
+      }
+      // soft iridescent halo outside the surface, premultiplied
+      vec3 halo = mix(uBlush, uLilac, .5 + .5 * uv.y);
+      col.rgb += halo * glow * (1. - col.a);
+      col.a += glow * (1. - col.a);
+      gl_FragColor = col;
+    }`;
+
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  let prog;
+  try {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+    gl.bindAttribLocation(prog, 0, 'p');
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  } catch (e) { console.warn(e); hero.classList.add('no-gl'); return; }
+  gl.useProgram(prog);
+  const U = {};
+  for (const n of ['uRes', 'uCenter', 'uMouse', 'uTime', 'uScale', 'uPull', 'uPearl', 'uBlush', 'uLilac', 'uAqua']) U[n] = gl.getUniformLocation(prog, n);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  for (const k of ['pearl', 'blush', 'lilac', 'aqua']) gl.uniform3fv(U['u' + k[0].toUpperCase() + k.slice(1)], cssColor('--' + k));
+
+  let W = 0, H = 0, scale = 1, quality = CONFIG.quality, cx = 0, cy = 0, unit = 1;
+  function resize() {
+    const r = hero.getBoundingClientRect();
+    W = r.width; H = r.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    scale = dpr * quality;
+    canvas.width = Math.max(1, Math.round(W * scale)); canvas.height = Math.max(1, Math.round(H * scale));
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    const narrow = W < 720;
+    cx = narrow ? W * .5 : W * .7;                // blob centre in CSS px
+    cy = narrow ? H * .27 : H * .5;
+    unit = Math.min(narrow ? W * .9 : W * .55, H * (narrow ? .5 : .95)) * CONFIG.size;
+  }
+
+  // Pointer: blob space coordinates of the pointer, clamped so the bulge stays attached.
+  const m = { x: .6, y: .45, tx: .6, ty: .45, pull: .55, tp: .55 };
+  function onMove(e) {
+    const r = hero.getBoundingClientRect();
+    let x = (e.clientX - r.left - cx) / unit, y = -(e.clientY - r.top - cy) / unit;
+    const l = Math.hypot(x, y), max = .78;
+    if (l > max) { x *= max / l; y *= max / l; }
+    m.tx = x; m.ty = y; m.tp = CONFIG.pull * Math.min(1, .55 + .45 * Math.min(1, 2.2 / Math.max(l, .01)));
+  }
+  hero.addEventListener('pointermove', onMove, { passive: true });
+  hero.addEventListener('pointerdown', onMove, { passive: true });
+  hero.addEventListener('pointerleave', () => { m.tx = .6; m.ty = .45; m.tp = .55; });
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let raf = 0, last = 0, time = 4.2, slow = 0, visible = true;
+
+  function draw() {
+    gl.uniform2f(U.uRes, canvas.width, canvas.height);
+    gl.uniform2f(U.uCenter, cx * scale, (H - cy) * scale);
+    gl.uniform1f(U.uScale, unit * scale);
+    gl.uniform1f(U.uTime, time * CONFIG.speed);
+    gl.uniform2f(U.uMouse, m.x, m.y);
+    gl.uniform1f(U.uPull, m.pull);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  function frame(now) {
+    const dt = Math.min(now - last, 50); last = now;
+    time += dt / 1000;
+    m.x += (m.tx - m.x) * .07; m.y += (m.ty - m.y) * .07; m.pull += (m.tp - m.pull) * .05;
+    draw();
+    // Adaptive quality: drop resolution if frames are consistently slow.
+    slow = dt > 28 ? slow + 1 : Math.max(0, slow - 1);
+    if (slow > 40 && quality > .32) { quality *= .8; slow = 0; resize(); }
+    raf = requestAnimationFrame(frame);
+  }
+  function start() {
+    cancelAnimationFrame(raf);
+    if (reduced.matches) { m.x = m.tx; m.y = m.ty; m.pull = m.tp; draw(); return; }
+    if (!document.hidden && visible) { last = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+  // Stop rendering once the hero scrolls out of view.
+  if ('IntersectionObserver' in window) new IntersectionObserver(([e]) => { visible = e.isIntersecting; start(); }).observe(hero);
+
+  addEventListener('resize', () => { resize(); draw(); });
+  document.addEventListener('visibilitychange', start);
+  reduced.addEventListener?.('change', start);
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); cancelAnimationFrame(raf); hero.classList.add('no-gl'); });
+
+  resize();
+  draw();
+  start();
+})();
+</script>
+</body>
+</html>

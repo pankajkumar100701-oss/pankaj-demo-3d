@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veyra — Particle Morph</title>
+<!--
+  Customise: edit the colour tokens in :root below. The particle cloud reads
+  --c1, --c2 and --c3 at startup, so the page and the WebGL scene always match.
+  Particle counts, morph timing and the list of shapes (with the labels shown on
+  the switcher buttons) live in the CONFIG object at the top of the script.
+-->
+<style>
+  :root {
+    --bg: #05050d;       /* page background */
+    --c1: #7c5cff;       /* particle colour A (violet) */
+    --c2: #22d3ee;       /* particle colour B (cyan) */
+    --c3: #ff5fc8;       /* particle colour C (pink highlights) */
+    --fg: #f1f2ff;
+    --muted: rgb(220 224 255 / 0.64);
+    --glass: rgb(18 18 40 / 0.5);
+    --line: rgb(255 255 255 / 0.1);
+    --card: rgb(255 255 255 / 0.035);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    min-height: 100vh; overflow-x: hidden; background: var(--bg); color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased; line-height: 1.5;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
+
+  /* ---------- nav ---------- */
+  nav { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); background: rgb(5 5 13 / 0.55); border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+  .logo svg { width: 24px; height: 24px; }
+  .links { display: flex; gap: 28px; font-size: 14px; color: var(--muted); }
+  .links a:hover { color: var(--fg); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 22px; border-radius: 12px; font-size: 15px; font-weight: 600; border: 0; transition: transform .2s, box-shadow .2s, background .2s; white-space: nowrap; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: linear-gradient(120deg, var(--c1), color-mix(in srgb, var(--c1) 40%, var(--c2))); color: #fff; box-shadow: 0 10px 34px -10px var(--c1), inset 0 1px 0 rgb(255 255 255 / .25); }
+  .btn.ghost { background: rgb(255 255 255 / .05); border: 1px solid var(--line); }
+  .btn.ghost:hover { background: rgb(255 255 255 / .1); }
+  .bar .btn { height: 38px; padding: 0 16px; font-size: 14px; border-radius: 10px; }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; overflow: hidden; isolation: isolate; }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -2;
+    background: radial-gradient(45% 55% at 72% 48%, color-mix(in srgb, var(--c1) 22%, transparent), transparent 70%),
+                radial-gradient(30% 40% at 85% 75%, color-mix(in srgb, var(--c2) 12%, transparent), transparent 70%); }
+  #gl { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; display: block; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; align-items: center; gap: 24px; min-height: calc(100vh - 64px); min-height: calc(100svh - 64px); padding-block: 48px 56px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; font-size: 13px; color: var(--muted); background: var(--glass); border: 1px solid var(--line); }
+  .eyebrow b { font-size: 11px; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c2) 22%, transparent); color: var(--c2); }
+  h1 { margin-top: 22px; font-size: clamp(40px, 6.2vw, 80px); line-height: 1.02; letter-spacing: -0.045em; font-weight: 700; text-wrap: balance; }
+  h1 em { font-style: normal; background: linear-gradient(100deg, var(--c2), var(--c1) 50%, var(--c3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { margin-top: 22px; max-width: 520px; font-size: clamp(16px, 1.5vw, 19px); color: var(--muted); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .proof { display: flex; align-items: center; gap: 14px; margin-top: 36px; font-size: 13px; color: var(--muted); }
+  .faces { display: flex; }
+  .faces i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--bg); margin-left: -8px; }
+  .faces i:first-child { margin-left: 0; }
+  .proof strong { color: var(--fg); }
+
+  .stage { position: relative; height: min(620px, 72vh); display: flex; align-items: flex-end; justify-content: center; }
+  .switch { display: flex; gap: 4px; padding: 5px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .switch button { position: relative; overflow: hidden; border: 0; background: transparent; padding: 8px 14px; border-radius: 10px; font-size: 13px; color: var(--muted); transition: color .2s, background .2s; }
+  .switch button:hover { color: var(--fg); }
+  .switch button[aria-pressed="true"] { color: var(--fg); background: rgb(255 255 255 / .08); }
+  .switch button[aria-pressed="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--c2), var(--c1)); transform-origin: left; transform: scaleX(var(--p, 0)); }
+  .readout { position: absolute; top: 8%; right: 0; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); text-align: right; }
+  .readout b { color: var(--c2); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+  section { padding: clamp(72px, 10vw, 120px) 0; }
+  .kicker { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--c2); }
+  h2 { margin-top: 14px; font-size: clamp(30px, 4.2vw, 50px); line-height: 1.08; letter-spacing: -0.035em; max-width: 720px; text-wrap: balance; }
+  .lead { margin-top: 16px; max-width: 600px; color: var(--muted); font-size: 17px; }
+  .logos { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 48px; padding: 28px 0; border-block: 1px solid var(--line); color: rgb(255 255 255 / .5); font-weight: 700; font-size: 19px; letter-spacing: -0.02em; }
+  .logos span:nth-child(2) { font-family: Georgia, serif; font-style: italic; font-weight: 400; }
+  .logos span:nth-child(3) { font-family: ui-monospace, Menlo, monospace; font-size: 16px; }
+  .logos span:nth-child(5) { letter-spacing: .2em; font-size: 15px; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+  .card { position: relative; padding: 28px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); overflow: hidden; }
+  .card::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; background: linear-gradient(140deg, color-mix(in srgb, var(--c1) 60%, transparent), transparent 40%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--c1) 18%, transparent); color: var(--c2); }
+  .icon svg { width: 22px; height: 22px; }
+  .card h3 { margin-top: 20px; font-size: 19px; letter-spacing: -0.02em; }
+  .card p { margin-top: 8px; color: var(--muted); font-size: 15px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(32px, 6vw, 80px); align-items: center; }
+  .steps { list-style: none; margin-top: 32px; display: grid; gap: 18px; }
+  .steps li { display: grid; grid-template-columns: 36px 1fr; gap: 14px; }
+  .steps b { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font: 600 13px ui-monospace, Menlo, monospace; background: rgb(255 255 255 / .05); border: 1px solid var(--line); color: var(--c2); }
+  .steps strong { display: block; font-size: 16px; }
+  .steps span { color: var(--muted); font-size: 15px; }
+  .code { min-width: 0; max-width: 100%; border-radius: 18px; background: #0b0b1a; border: 1px solid var(--line); box-shadow: 0 30px 80px -30px color-mix(in srgb, var(--c1) 50%, transparent); overflow: hidden; }
+  .code-top { display: flex; gap: 6px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .code-top i { width: 10px; height: 10px; border-radius: 50%; background: rgb(255 255 255 / .14); }
+  .code pre { padding: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; max-width: 100%; font: 13.5px/1.75 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #c8cbe8; }
+  .code .k { color: var(--c3); } .code .s { color: var(--c2); } .code .c { color: rgb(255 255 255 / .35); } .code .f { color: #b9a6ff; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-top: 48px; background: var(--line); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
+  .stat { background: var(--bg); padding: 28px 24px; }
+  .stat strong { display: block; font-size: clamp(30px, 3.6vw, 44px); letter-spacing: -0.04em; background: linear-gradient(120deg, var(--fg), var(--c2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat span { color: var(--muted); font-size: 14px; }
+
+  .quote { margin-top: 56px; max-width: 820px; font-size: clamp(20px, 2.4vw, 28px); line-height: 1.4; letter-spacing: -0.02em; }
+  .quote footer { margin-top: 18px; font-size: 14px; color: var(--muted); letter-spacing: 0; }
+
+  .cta { position: relative; text-align: center; padding: clamp(48px, 8vw, 88px) 24px; border-radius: 28px; border: 1px solid var(--line); overflow: hidden;
+    background: radial-gradient(60% 90% at 50% 0%, color-mix(in srgb, var(--c1) 35%, transparent), transparent 70%), radial-gradient(40% 60% at 90% 100%, color-mix(in srgb, var(--c2) 18%, transparent), transparent 70%), var(--card); }
+  .cta h2 { margin: 0 auto; }
+  .cta .lead { margin: 16px auto 0; }
+  .cta .ctas { justify-content: center; }
+
+  footer.site { border-top: 1px solid var(--line); padding: 40px 0 48px; color: var(--muted); font-size: 14px; }
+  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; align-items: center; }
+  .foot nav { position: static; background: none; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none; display: flex; flex-wrap: wrap; gap: 22px; }
+  .foot nav a:hover { color: var(--fg); }
+
+  /* WebGL unavailable: a static glowing orb stands in for the particle cloud. */
+  body.no-gl #gl { display: none; }
+  body.no-gl .stage::before { content: ""; position: absolute; left: 50%; top: 44%; width: min(420px, 80%); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c2) 70%, transparent), transparent 45%), radial-gradient(circle at 65% 70%, color-mix(in srgb, var(--c3) 55%, transparent), transparent 50%), radial-gradient(circle, color-mix(in srgb, var(--c1) 60%, transparent), transparent 70%); filter: blur(6px); }
+  body.no-gl .switch { display: none; }
+
+  @media (max-width: 920px) {
+    .links { display: none; }
+    .hero-grid { grid-template-columns: 1fr; min-height: 0; padding-block: 40px 32px; gap: 0; text-align: center; }
+    .sub { margin-inline: auto; }
+    .ctas, .proof { justify-content: center; }
+    .stage { height: 440px; }
+    .readout { display: none; }
+    .cards { grid-template-columns: 1fr; }
+    .split { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 420px) {
+    .ctas .btn { flex: 1 1 100%; }
+    .stage { height: 380px; margin-top: -28px; }
+    .hero-grid { padding-block: 24px 24px; }
+    .ctas { margin-top: 24px; }
+    .proof { margin-top: 22px; }
+    .code pre { padding: 16px; font-size: 12px; }
+    .switch button { padding: 8px 10px; font-size: 12px; }
+    .proof { flex-direction: column; gap: 8px; }
+    .bar .btn { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn { transition: none; } }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap bar">
+    <a href="#" class="logo" aria-label="Veyra home">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#22d3ee"/><stop offset=".55" stop-color="#7c5cff"/><stop offset="1" stop-color="#ff5fc8"/></linearGradient></defs><circle cx="12" cy="12" r="10" stroke="url(#lg)" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="url(#lg)"/></svg>
+      Veyra
+    </a>
+    <div class="links"><a href="#platform">Platform</a><a href="#developers">Developers</a><a href="#customers">Customers</a><a href="#">Pricing</a></div>
+    <a href="#start" class="btn primary">Request access</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="wrap hero-grid">
+    <div>
+      <a href="#" class="eyebrow"><b>NEW</b> Veyra Flux 2 is live in 14 regions &rarr;</a>
+      <h1>Models that take the <em>shape of your problem.</em></h1>
+      <p class="sub">Veyra reshapes one foundation model around your data, latency budget and hardware in minutes, not quarters. No retraining pipeline, no GPU queue.</p>
+      <div class="ctas">
+        <a href="#start" class="btn primary">Start building free</a>
+        <a href="#developers" class="btn ghost">Read the docs</a>
+      </div>
+      <div class="proof">
+        <div class="faces" aria-hidden="true">
+          <i style="background:linear-gradient(135deg,#7c5cff,#22d3ee)"></i><i style="background:linear-gradient(135deg,#ff5fc8,#7c5cff)"></i><i style="background:linear-gradient(135deg,#22d3ee,#a3e635)"></i><i style="background:linear-gradient(135deg,#fbbf24,#ff5fc8)"></i>
+        </div>
+        <span><strong>4,800+ teams</strong> ship on Veyra every week</span>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="readout" aria-hidden="true">form <b id="ro-name">sphere</b><br>points <b id="ro-n">14,000</b><br>latency <b>11 ms</b></div>
+      <div class="switch" id="switch" role="group" aria-label="Particle shape"></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="logos" aria-label="Customers"><span>Northwind</span><span>Aldermoor</span><span>{ quanta }</span><span>Helio</span><span>OBSIDIAN</span><span>Parallax</span></div>
+</div>
+
+<section id="platform">
+  <div class="wrap">
+    <p class="kicker">Platform</p>
+    <h2>One model. Every form factor your product needs.</h2>
+    <p class="lead">Veyra compiles a task-specific variant of Flux for each endpoint, so you get frontier quality with the footprint of a model a tenth the size.</p>
+    <div class="cards">
+      <article class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></div>
+        <h3>Adaptive distillation</h3>
+        <p>Point Veyra at 200 examples and it carves a specialist model that matches GPT-class accuracy on your task.</p>
+      </article>
+      <article class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Private by default</h3>
+        <p>Your data never trains shared weights. Deploy in our cloud, your VPC, or fully air-gapped on-prem.</p>
+      </article>
+      <article class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div>
+        <h3>Edge-ready runtime</h3>
+        <p>Variants as small as 380 MB run at 60 tokens a second on a laptop, a phone, or a factory gateway.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="developers" style="padding-top:0">
+  <div class="wrap split">
+    <div>
+      <p class="kicker">Developers</p>
+      <h2>From notebook to production in three calls.</h2>
+      <ol class="steps">
+        <li><b>01</b><div><strong>Describe the task</strong><span>Plain-language spec plus a handful of labelled examples.</span></div></li>
+        <li><b>02</b><div><strong>Shape the model</strong><span>Veyra searches architectures against your latency and cost budget.</span></div></li>
+        <li><b>03</b><div><strong>Deploy anywhere</strong><span>One endpoint, versioned, monitored and rolled back with a click.</span></div></li>
+      </ol>
+    </div>
+    <div class="code" aria-label="Code sample">
+      <div class="code-top"><i></i><i></i><i></i></div>
+<pre><span class="k">import</span> veyra
+
+<span class="c"># 1. describe what "good" looks like</span>
+task = veyra.<span class="f">Task</span>(
+  <span class="s">"Route support tickets by urgency"</span>,
+  examples=<span class="s">"tickets_labeled.jsonl"</span>,
+)
+
+<span class="c"># 2. shape a model to your budget</span>
+model = task.<span class="f">shape</span>(latency=<span class="s">"20ms"</span>, target=<span class="s">"edge"</span>)
+
+<span class="c"># 3. ship it</span>
+model.<span class="f">deploy</span>(region=<span class="s">"eu-west"</span>)  <span class="c"># → 98.4% acc</span></pre>
+    </div>
+  </div>
+</section>
+
+<section id="customers" style="padding-top:0">
+  <div class="wrap">
+    <p class="kicker">Results</p>
+    <h2>Smaller models. Bigger margins.</h2>
+    <div class="stats">
+      <div class="stat"><strong>11 ms</strong><span>median time to first token</span></div>
+      <div class="stat"><strong>92%</strong><span>lower inference cost</span></div>
+      <div class="stat"><strong>38 min</strong><span>average time to deploy</span></div>
+      <div class="stat"><strong>SOC 2</strong><span>Type II &amp; HIPAA ready</span></div>
+    </div>
+    <blockquote class="quote">“We replaced four fine-tuned models and a vendor contract with one Veyra workspace. Our triage bot got faster, cheaper and, frankly, smarter.”
+      <footer>Maya Okafor, VP Engineering at Northwind Health</footer>
+    </blockquote>
+  </div>
+</section>
+
+<section id="start" style="padding-top:0">
+  <div class="wrap">
+    <div class="cta">
+      <p class="kicker">Early access</p>
+      <h2>Give your product a model that fits.</h2>
+      <p class="lead">Free for your first 10 million tokens. No credit card, no sales call.</p>
+      <div class="ctas"><a href="#" class="btn primary">Request access</a><a href="#" class="btn ghost">Talk to an engineer</a></div>
+    </div>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap foot">
+    <span>&copy; 2026 Veyra Labs, Inc. Made in Lisbon &amp; Toronto.</span>
+    <nav aria-label="Footer"><a href="#">Status</a><a href="#">Security</a><a href="#">Careers</a><a href="#">Privacy</a></nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const CONFIG = {
+    desktopCount: 14000, phoneCount: 7000,
+    hold: 3.4,      // seconds a shape rests before the next morph
+    morph: 2.2,     // seconds a morph takes
+    shapes: [       // order of the cycle; labels appear on the switcher
+      { id: 'sphere', label: 'Sphere' },
+      { id: 'knot', label: 'Knot' },
+      { id: 'wave', label: 'Wave' },
+      { id: 'cube', label: 'Cube' },
+    ],
+  };
+
+  const $ = (s) => document.querySelector(s);
+  const canvas = $('#gl'), stage = $('#stage'), sw = $('#switch');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Shape buttons
+  const buttons = CONFIG.shapes.map((s, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = s.label; b.setAttribute('aria-pressed', i === 0);
+    b.addEventListener('click', () => go(i));
+    sw.appendChild(b); return b;
+  });
+
+  const gl = canvas.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true });
+  if (!gl) { document.body.classList.add('no-gl'); return; }
+
+  const probe = document.createElement('span'); document.body.appendChild(probe);
+  const cssColor = (name) => {
+    probe.style.color = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const m = getComputedStyle(probe).color.match(/[\d.]+/g) || [1, 1, 1];
+    return m.slice(0, 3).map((v) => +v / 255);
+  };
+
+  const VS = `
+    attribute vec3 aS0, aS1, aS2, aS3; attribute vec4 aR;
+    uniform vec4 uFrom, uTo; uniform float uP, uT, uYaw, uPitch, uAspect, uScale, uPx;
+    uniform vec2 uOff; uniform vec3 uC1, uC2, uC3;
+    varying vec3 vC; varying float vA;
+    vec3 S(vec4 w){ return aS0*w.x + aS1*w.y + aS2*w.z + aS3*w.w; }
+    void main(){
+      float d = aR.x * .4;
+      float p = smoothstep(d, d + .6, uP);
+      vec3 pos = mix(S(uFrom), S(uTo), p);
+      float mid = sin(p * 3.14159);
+      // swirl + bloom outward mid-morph
+      float sw = mid * (1.2 + aR.w * 1.6);
+      pos.xz = mat2(cos(sw), -sin(sw), sin(sw), cos(sw)) * pos.xz;
+      pos *= 1. + mid * (.18 + .5 * aR.y);
+      float gw = mix(uFrom.z, uTo.z, p);
+      pos.y += gw * .16 * sin(pos.x * 2.6 + uT * 1.7) * cos(pos.z * 2.2 + uT * 1.2);
+      pos += .012 * vec3(sin(uT * 1.3 + aR.w * 40.), cos(uT * 1.1 + aR.z * 40.), sin(uT * .9 + aR.y * 40.));
+      float cy = cos(uYaw), sy = sin(uYaw), cp = cos(uPitch), sp = sin(uPitch);
+      pos.xz = mat2(cy, -sy, sy, cy) * pos.xz;
+      pos.yz = mat2(cp, -sp, sp, cp) * pos.yz;
+      float vz = 5.2 - pos.z;
+      vec2 sc = pos.xy * uScale / vz;
+      sc.x /= uAspect;
+      gl_Position = vec4(sc + uOff, 0., 1.);
+      gl_PointSize = uPx * (.55 + aR.y * 1.25) * (5.2 / vz);
+      float t = clamp(.5 + .32 * pos.x + .22 * pos.y + (aR.z - .5) * .5, 0., 1.);
+      vC = mix(uC2, uC1, smoothstep(0., .6, t));
+      vC = mix(vC, uC3, smoothstep(.6, 1., t) * .9);
+      vA = mix(1.15, .35, smoothstep(3.8, 6.6, vz)) * (1. + mid * .25);
+    }`;
+  const FS = `precision mediump float;
+    varying vec3 vC; varying float vA; uniform float uGain;
+    void main(){
+      float d = length(gl_PointCoord - .5);
+      if (d > .5) discard;
+      float a = smoothstep(.5, .0, d); a *= a;
+      float core = smoothstep(.18, .0, d);
+      vec3 c = (vC + core * .6) * a * vA * uGain;
+      gl_FragColor = vec4(c, a * vA * uGain);
+    }`;
+
+  function compile(type, src) {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  let prog;
+  try {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  } catch (e) { console.warn(e); document.body.classList.add('no-gl'); return; }
+  gl.useProgram(prog);
+  const U = {};
+  for (let i = 0, n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS); i < n; i++) {
+    const name = gl.getActiveUniform(prog, i).name; U[name] = gl.getUniformLocation(prog, name);
+  }
+
+  // ---------- particle shapes ----------
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const gauss = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+  const GEN = {
+    sphere(i, n) {
+      const y = 1 - 2 * (i + .5) / n, r = Math.sqrt(1 - y * y), th = i * 2.399963, R = 1.32 * (.97 + rnd() * .06);
+      return [Math.cos(th) * r * R, y * R, Math.sin(th) * r * R];
+    },
+    knot() {
+      const t = rnd() * Math.PI * 2, s = .4, k = 2 + Math.cos(3 * t);
+      return [k * Math.cos(2 * t) * s + gauss() * .09, k * Math.sin(2 * t) * s + gauss() * .09, Math.sin(3 * t) * s * 1.4 + gauss() * .09];
+    },
+    wave(i, n) {
+      const side = Math.ceil(Math.sqrt(n)), gx = i % side, gz = Math.floor(i / side);
+      const x = (gx / (side - 1) - .5) * 2.8, z = (gz / (side - 1) - .5) * 2.8;
+      return [x, .22 * Math.sin(x * 1.8) * Math.cos(z * 1.6) - .1, z];
+    },
+    cube() {
+      const h = .86, onEdge = rnd() < .3, p = [0, 0, 0], a = Math.floor(rnd() * 3);
+      if (onEdge) { p[a] = (rnd() * 2 - 1) * h; p[(a + 1) % 3] = rnd() < .5 ? -h : h; p[(a + 2) % 3] = rnd() < .5 ? -h : h; }
+      else { p[a] = rnd() < .5 ? -h : h; p[(a + 1) % 3] = (rnd() * 2 - 1) * h; p[(a + 2) % 3] = (rnd() * 2 - 1) * h; }
+      return p;
+    },
+  };
+  const SHAPES = CONFIG.shapes.map((s) => s.id);
+  let count = 0;
+  const bufs = [0, 1, 2, 3, 4].map(() => gl.createBuffer());
+  function build(n) {
+    count = n; seed = 7;
+    for (let s = 0; s < 4; s++) {
+      const arr = new Float32Array(n * 3), gen = GEN[SHAPES[s]] || GEN.sphere;
+      for (let i = 0; i < n; i++) arr.set(gen(i, n), i * 3);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufs[s]); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+    }
+    const r = new Float32Array(n * 4);
+    for (let i = 0; i < n * 4; i++) r[i] = rnd();
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufs[4]); gl.bufferData(gl.ARRAY_BUFFER, r, gl.STATIC_DRAW);
+    ['aS0', 'aS1', 'aS2', 'aS3', 'aR'].forEach((name, k) => {
+      const loc = gl.getAttribLocation(prog, name);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufs[k]); gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, k === 4 ? 4 : 3, gl.FLOAT, false, 0, 0);
+    });
+    $('#ro-n').textContent = n.toLocaleString('en-US');
+  }
+
+  // ---------- state ----------
+  const W4 = (i) => [0, 1, 2, 3].map((k) => (k === i ? 1 : 0));
+  let from = 0, to = 0, progress = 1, holdT = 0, queued = -1;
+  function go(i) {
+    if (i === to && progress >= 1) return;
+    if (progress < 1) { queued = i; return; }
+    from = to; to = i; progress = reduced.matches ? 1 : 0; holdT = 0;
+    buttons.forEach((b, k) => b.setAttribute('aria-pressed', k === i));
+    $('#ro-name').textContent = SHAPES[i];
+    if (reduced.matches) draw();
+  }
+
+  const rot = { yaw: .6, pitch: .32, ty: 0, tp: 0, oy: 0, op: 0, spin: 0 };
+  let drag = null;
+  addEventListener('pointermove', (e) => {
+    const r = stage.getBoundingClientRect();
+    if (drag) { rot.spin += (e.clientX - drag.x) * .004; rot.tp += (e.clientY - drag.y) * .003; drag.x = e.clientX; drag.y = e.clientY; }
+    else if (e.pointerType === 'mouse') {
+      rot.ty = Math.max(-1, Math.min(1, (e.clientX - r.left - r.width / 2) / (r.width))) * .9;
+      rot.tp = Math.max(-1, Math.min(1, (e.clientY - r.top - r.height / 2) / (r.height))) * .6;
+    }
+    if (reduced.matches) draw();
+  }, { passive: true });
+  stage.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; drag = { x: e.clientX, y: e.clientY }; });
+  addEventListener('pointerup', () => { drag = null; });
+  addEventListener('pointercancel', () => { drag = null; });
+  stage.style.touchAction = 'pan-y';
+
+  // ---------- layout ----------
+  let W = 1, H = 1, dpr = 1, small = null, off = [0, 0], scale = 2;
+  const colors = {};
+  function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    const cr = canvas.getBoundingClientRect();
+    W = Math.max(1, cr.width); H = Math.max(1, cr.height);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    const sr = stage.getBoundingClientRect();
+    const cx = sr.left + sr.width / 2 - cr.left, cy = sr.top + sr.height * .44 - cr.top;
+    off = [cx / W * 2 - 1, 1 - cy / H * 2];
+    // the shape (radius ~1.4) should fill ~42% of the stage's smaller side
+    const fit = Math.min(sr.width * .92, sr.height * .8) * .5;
+    scale = fit / 1.45 * 5.2 / (H / 2);
+    const nowSmall = innerWidth < 760;
+    if (nowSmall !== small) { small = nowSmall; build(small ? CONFIG.phoneCount : CONFIG.desktopCount); }
+  }
+  for (const k of ['c1', 'c2', 'c3']) colors[k] = cssColor('--' + k);
+
+  const ease = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  let time = 0, raf = 0, last = 0;
+  function draw() {
+    const k = .05;
+    rot.oy += (rot.ty - rot.oy) * k; rot.op += (rot.tp - rot.op) * k;
+    if (reduced.matches) { rot.oy = rot.ty; rot.op = rot.tp; }
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+    gl.uniform4fv(U.uFrom, W4(from)); gl.uniform4fv(U.uTo, W4(to));
+    gl.uniform1f(U.uP, ease(Math.min(1, progress)));
+    gl.uniform1f(U.uT, time);
+    gl.uniform1f(U.uYaw, rot.yaw + rot.spin + rot.oy);
+    gl.uniform1f(U.uPitch, Math.max(-.5, Math.min(1.1, rot.pitch + rot.op)));
+    gl.uniform1f(U.uAspect, W / H); gl.uniform1f(U.uScale, scale);
+    gl.uniform2fv(U.uOff, off);
+    gl.uniform1f(U.uPx, (small ? 2.6 : 3) * dpr);
+    gl.uniform1f(U.uGain, small ? .8 : .66);
+    gl.uniform3fv(U.uC1, colors.c1); gl.uniform3fv(U.uC2, colors.c2); gl.uniform3fv(U.uC3, colors.c3);
+    gl.drawArrays(gl.POINTS, 0, count);
+    const btn = buttons[to];
+    if (btn) btn.style.setProperty('--p', progress < 1 ? ease(progress) : Math.min(1, holdT / CONFIG.hold));
+  }
+
+  function frame(now) {
+    const dt = Math.min(now - last, 50) / 1000; last = now;
+    time += dt; rot.yaw += dt * .18; rot.spin *= .985;
+    if (progress < 1) {
+      progress = Math.min(1, progress + dt / CONFIG.morph);
+      if (progress >= 1 && queued >= 0) { const q = queued; queued = -1; go(q); }
+    } else if ((holdT += dt) > CONFIG.hold) go((to + 1) % SHAPES.length);
+    draw();
+    raf = requestAnimationFrame(frame);
+  }
+  let visible = true;
+  function start() {
+    cancelAnimationFrame(raf);
+    if (reduced.matches) { progress = 1; draw(); return; }
+    if (!document.hidden && visible) { last = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; start(); }).observe(canvas);
+  }
+  addEventListener('resize', () => { resize(); draw(); });
+  document.addEventListener('visibilitychange', start);
+  reduced.addEventListener?.('change', start);
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); cancelAnimationFrame(raf); document.body.classList.add('no-gl'); });
+
+  resize();
+  draw();
+  start();
+})();
+</script>
+</body>
+</html>

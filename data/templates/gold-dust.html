@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aurum — Gold Dust</title>
+<!--
+  Customise: colours live in :root. The WebGL dust cloud is driven by the
+  data-* attributes on each <section>: data-s = shape (0 hourglass, 1 dial,
+  2 wordmark, 3 galaxy, 4 dust), data-x / data-y = offset of the cloud
+  (-1..1, screen units), data-g = brightness. Particle counts are in CONFIG.
+  The wordmark shape is drawn from CONFIG.word.
+-->
+<style>
+  :root {
+    --bg: #040302;
+    --gold: #e8c27a;
+    --gold2: #b6842e;
+    --pale: #f7e8c8;
+    --ink: #f2ece1;
+    --muted: rgb(242 236 225 / .62);
+    --line: rgb(232 194 122 / .2);
+    --serif: Didot, "Bodoni 72", "Bodoni MT", "Bodoni 72 Oldstyle", "Playfair Display", Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  ::selection { background: var(--gold); color: #000; }
+  #gl, #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #gl { z-index: 0; background: var(--bg); }
+  #fx { z-index: 40; pointer-events: none; }
+  .grain, .vig { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  .vig { background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgb(0 0 0 / .75)); }
+  .grain { inset: -50%; opacity: .07; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); animation: grain .9s steps(5) infinite; }
+  @keyframes grain { 0% { transform: translate(0, 0) } 20% { transform: translate(-4%, 3%) } 40% { transform: translate(3%, -5%) } 60% { transform: translate(-6%, -2%) } 80% { transform: translate(5%, 4%) } }
+  .caps { font-size: 12px; letter-spacing: .32em; text-transform: uppercase; color: var(--gold); }
+  .wrap { position: relative; z-index: 3; max-width: 1280px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+
+  /* nav */
+  .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px clamp(16px, 3vw, 36px); }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 19px; letter-spacing: .34em; }
+  .logo svg { width: 22px; height: 22px; }
+  .links { display: flex; gap: 34px; }
+  .links a { font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: var(--muted); transition: color .3s; }
+  .links a:hover { color: var(--pale); }
+  .pills { display: flex; gap: 8px; }
+  .pill { display: inline-flex; align-items: center; height: 38px; padding: 0 18px; border-radius: 99px; border: 1px solid var(--line); background: rgb(10 8 5 / .45); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; transition: border-color .3s, background .3s, color .3s, box-shadow .3s; white-space: nowrap; }
+  .pill:hover { border-color: var(--gold); }
+  .pill.gold { border-color: rgb(232 194 122 / .55); color: var(--pale); }
+  .pill.gold:hover, .btn:hover { background: var(--gold); color: #120c03; box-shadow: 0 0 40px -6px var(--gold); }
+  .menu { display: none; }
+
+  /* hero */
+  .hero { position: relative; min-height: 100vh; min-height: 100svh; }
+  .hero .wrap { min-height: 100vh; min-height: 100svh; display: grid; grid-template-rows: auto 1fr auto; padding-top: 96px; padding-bottom: 34px; }
+  .eyebrow { opacity: 0; animation: up 1s .1s forwards; }
+  .h1 { align-self: center; display: flex; justify-content: space-between; align-items: center; font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 4.6vw, 82px); line-height: 1.02; letter-spacing: -.01em; }
+  .h1 span { opacity: 0; animation: up 1.1s .15s forwards; max-width: 28vw; }
+  .h1 em { opacity: 0; animation: up 1.1s .3s forwards; text-align: right; max-width: 28vw; background: linear-gradient(100deg, var(--pale), var(--gold) 45%, var(--gold2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hfoot { display: flex; justify-content: space-between; align-items: end; gap: 24px; opacity: 0; animation: up 1s .35s forwards; }
+  .hfoot p { max-width: 34ch; color: var(--muted); font-size: 14px; }
+  .scroll { display: flex; align-items: center; gap: 14px; }
+  .scroll i { width: 1px; height: 46px; background: linear-gradient(var(--gold), transparent); animation: drip 2.2s infinite; transform-origin: top; }
+  @keyframes drip { 0% { transform: scaleY(0) } 50% { transform: scaleY(1) } 100% { transform: scaleY(1); opacity: 0 } }
+  @keyframes up { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
+  #ld { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 12px; font-size: 12px; letter-spacing: .3em; color: var(--gold); transition: opacity .8s; }
+  #ld b { display: block; width: 90px; height: 1px; background: var(--line); position: relative; overflow: hidden; }
+  #ld b::after { content: ""; position: absolute; inset: 0; background: var(--gold); transform: scaleX(var(--p, .5)); transform-origin: left; }
+  #ld.done { opacity: 0; }
+
+  /* sections */
+  section { position: relative; }
+  .sec { min-height: 100vh; padding: 140px 0; display: flex; align-items: center; }
+  .sec > .wrap { width: 100%; }
+  .h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 5vw, 72px); line-height: 1.05; margin: 18px 0 26px; }
+  .h2 em { color: var(--gold); }
+  .rv { opacity: 0; transform: translateY(30px); transition: opacity 1.2s, transform 1.2s cubic-bezier(.2, .7, .2, 1); }
+  .rv.in { opacity: 1; transform: none; }
+  .mani { max-width: 640px; }
+  .mani p.big { font-family: var(--serif); font-size: clamp(26px, 3.3vw, 46px); line-height: 1.22; }
+  .mani p.big span { opacity: .16; transition: opacity .4s; }
+  .mani .sig { margin-top: 34px; color: var(--muted); font-size: 14px; }
+  .mani .sig b { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--pale); font-size: 22px; display: block; }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 40px; }
+  .card { position: relative; padding: 26px 26px 28px; border: 1px solid var(--line); border-radius: 4px; background: linear-gradient(180deg, rgb(18 14 8 / .72), rgb(6 5 3 / .82)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); overflow: hidden; transition: transform .6s cubic-bezier(.2, .7, .2, 1), border-color .4s; }
+  .card::before { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgb(247 232 200 / .13) 50%, transparent 65%); transform: translateX(-100%); transition: transform 1s; }
+  .card:hover { transform: translateY(-8px); border-color: rgb(232 194 122 / .5); }
+  .card:hover::before { transform: translateX(100%); }
+  .card svg { width: 72%; display: block; margin: 6px auto 22px; filter: drop-shadow(0 20px 40px rgb(232 194 122 / .18)); }
+  .card .no { position: absolute; top: 18px; right: 20px; font-family: var(--serif); font-style: italic; color: var(--gold); }
+  .card h3 { font-family: var(--serif); font-weight: 400; font-size: 26px; }
+  .card p { color: var(--muted); font-size: 13px; margin: 6px 0 18px; }
+  .card .row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 14px; font-size: 13px; }
+  .card .price { font-family: var(--serif); font-size: 19px; color: var(--pale); }
+
+  .atel { min-height: 120vh; display: flex; flex-direction: column; justify-content: space-between; }
+  .atel .gap { flex: 1; min-height: 34vh; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
+  .step { padding: 24px 22px 0 0; }
+  .step + .step { padding-left: 22px; border-left: 1px solid var(--line); }
+  .step i { font-family: var(--serif); color: var(--gold); font-size: 30px; }
+  .step h4 { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 6px 0; }
+  .step p { color: var(--muted); font-size: 13px; }
+
+  .nums { display: grid; grid-template-columns: 1fr 1fr; gap: 26vh 30vw; text-align: center; margin-top: 30px; }
+  .num b { display: block; font-family: var(--serif); font-weight: 400; font-size: clamp(48px, 7vw, 108px); line-height: 1; background: linear-gradient(180deg, var(--pale), var(--gold2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .num span { font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); }
+
+  .appt { display: grid; grid-template-columns: 1fr 1fr; gap: 6vw; align-items: center; }
+  form { padding: 36px; border: 1px solid var(--line); border-radius: 4px; background: rgb(8 6 4 / .78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: grid; gap: 22px; grid-template-columns: 1fr 1fr; }
+  .f { display: grid; gap: 6px; }
+  .f.w { grid-column: 1 / -1; }
+  .f label { font-size: 12px; letter-spacing: .24em; text-transform: uppercase; color: var(--gold); }
+  .f input, .f select, .f textarea { width: 100%; min-width: 0; background: transparent; border: 0; border-bottom: 1px solid var(--line); padding: 8px 0; font-size: 16px; outline: none; border-radius: 0; color-scheme: dark; transition: border-color .3s; }
+  .f select option { background: #0b0906; }
+  .f textarea { resize: vertical; min-height: 64px; }
+  .f :focus { border-color: var(--gold); }
+  .btn { grid-column: 1 / -1; height: 52px; border-radius: 99px; border: 1px solid var(--gold); background: transparent; color: var(--pale); font-size: 12px; letter-spacing: .26em; text-transform: uppercase; cursor: pointer; transition: background .3s, color .3s, box-shadow .3s; }
+  .thanks { grid-column: 1 / -1; font-family: var(--serif); font-size: 22px; color: var(--pale); text-align: center; padding: 30px 0; }
+  .side p { color: var(--muted); max-width: 40ch; }
+  .side ul { list-style: none; margin-top: 28px; display: grid; gap: 10px; font-size: 14px; }
+  .side li { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 10px; max-width: 380px; }
+  .side li span { color: var(--muted); }
+
+  footer { position: relative; min-height: 90vh; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 30px; }
+  .mark { font-family: var(--serif); font-size: clamp(64px, 19vw, 290px); line-height: .9; letter-spacing: .06em; text-align: center; color: rgb(232 194 122 / .07); -webkit-text-stroke: 1px rgb(232 194 122 / .8); text-shadow: 0 0 60px rgb(232 194 122 / .25); }
+  .fbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); letter-spacing: .1em; }
+  .fbar nav { display: flex; gap: 22px; flex-wrap: wrap; }
+
+  /* cursor */
+  .cur, .dot { position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none; border-radius: 50%; opacity: 0; transition: opacity .3s, width .3s, height .3s, margin .3s, border-color .3s; }
+  .cur { width: 34px; height: 34px; margin: -17px; border: 1px solid rgb(232 194 122 / .6); }
+  .dot { width: 4px; height: 4px; margin: -2px; background: var(--pale); }
+  .cur.big { width: 64px; height: 64px; margin: -32px; border-color: var(--gold); }
+  @media (pointer: fine) { .fine, .fine a, .fine button, .fine select { cursor: none; } .fine input, .fine textarea { cursor: text; } }
+
+  @media (max-width: 900px) {
+    .grid3 { grid-template-columns: 1fr; max-width: 420px; margin-inline: auto; }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .step:nth-child(3) { border-left: 0; padding-left: 0; }
+    .appt { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 760px) {
+    .links { display: none; position: absolute; top: 66px; right: 16px; left: 16px; flex-direction: column; gap: 0; padding: 8px 20px; border: 1px solid var(--line); border-radius: 18px; background: rgb(8 6 4 / .92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .links.open { display: flex; }
+    .links a { padding: 14px 0; }
+    .links a + a { border-top: 1px solid var(--line); }
+    .menu { display: inline-flex; }
+    .pill { padding: 0 14px; }
+    .pill .x, .yr { display: none; }
+    .logo { font-size: 16px; letter-spacing: .26em; }
+    .h1 { align-self: end; flex-direction: column; align-items: flex-start; gap: 4px; font-size: clamp(36px, 10.5vw, 52px); margin-bottom: 22px; }
+    .h1 span, .h1 em { max-width: none; text-align: left; }
+    .hero .wrap { padding-bottom: 76px; }
+    .hfoot p { font-size: 13px; }
+    .scroll { display: none; }
+    .sec { padding: 110px 0; }
+    .steps { grid-template-columns: 1fr; }
+    .step, .step + .step { padding: 20px 0; border-left: 0; border-bottom: 1px solid var(--line); }
+    .nums { gap: 48px 16px; }
+    form { grid-template-columns: 1fr; padding: 24px 20px; }
+    .atel .gap { min-height: 46vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: .01s !important; animation-iteration-count: 1 !important; transition-duration: .01s !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="vig"></div><div class="grain"></div>
+<div class="cur"></div><div class="dot"></div>
+
+<header class="nav">
+  <a class="logo" href="#top" aria-label="Aurum home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#e8c27a" stroke-width="1.2"><path d="M5 2.5h14M5 21.5h14M7 2.5c0 6 10 6.5 10 9.5s-10 3.5-10 9.5M17 2.5c0 6-10 6.5-10 9.5s10 3.5 10 9.5"/><circle cx="12" cy="12" r="2.6" stroke-width=".8"/></svg>
+    <span>AURUM</span>
+  </a>
+  <nav class="links" id="links" aria-label="Primary">
+    <a href="#maison">Maison</a><a href="#collection">Collection</a><a href="#atelier">Atelier</a><a href="#heritage">Heritage</a>
+  </nav>
+  <div class="pills">
+    <button class="pill menu" type="button" aria-expanded="false" aria-controls="links">Menu</button>
+    <a class="pill gold" href="#appointment" data-attract>Book<span class="x">&nbsp;appointment</span></a>
+  </div>
+</header>
+
+<main>
+  <section id="top" class="hero" data-s="0" data-g="1" data-my=".26">
+    <div class="wrap">
+      <p class="caps eyebrow">Maison d’horlogerie · Genève<span class="yr"> · MDCCCXCVII</span></p>
+      <h1 class="h1"><span>Every second,</span><em>poured in gold.</em></h1>
+      <div class="hfoot">
+        <p>Fourteen hand-finished timepieces leave our atelier on the Rhône each year. Each one keeps a little of forever.</p>
+        <a class="scroll caps" href="#maison"><i></i>Scroll</a>
+      </div>
+    </div>
+    <div id="ld" aria-hidden="true"><span id="ldn">000</span><b></b></div>
+  </section>
+
+  <section id="maison" class="sec" data-s="1" data-x=".48" data-g=".85">
+    <div class="wrap">
+      <div class="mani">
+        <p class="caps">I — Manifesto</p>
+        <p class="big" id="mani">We do not measure time. We pour it — grain by grain — into objects quiet enough to be passed down, and patient enough to outlive us all.</p>
+        <p class="sig rv"><b>Héloïse Varenne</b>Seventh-generation maître horloger</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="collection" class="sec" data-s="1" data-g=".35">
+    <div class="wrap">
+      <p class="caps rv">II — The Collection</p>
+      <h2 class="h2 rv">Three pieces, <em>one obsession.</em></h2>
+      <div class="grid3">
+        <article class="card rv"><span class="no">i.</span><svg data-w="0" viewBox="0 0 200 200"></svg><h3>Sablier N°1</h3><p>Flying tourbillon · 18k yellow gold · 41 mm · edition of 8</p><div class="row"><span class="caps">Tourbillon</span><span class="price">CHF 184,000</span></div></article>
+        <article class="card rv"><span class="no">ii.</span><svg data-w="1" viewBox="0 0 200 200"></svg><h3>Aurore Perpétuelle</h3><p>Perpetual calendar · rose gold · moonphase · 39 mm</p><div class="row"><span class="caps">Calendar</span><span class="price">CHF 126,500</span></div></article>
+        <article class="card rv"><span class="no">iii.</span><svg data-w="2" viewBox="0 0 200 200"></svg><h3>Minuit Squelette</h3><p>Openworked movement · white gold & onyx · 40 mm</p><div class="row"><span class="caps">Skeleton</span><span class="price">CHF 92,000</span></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="atelier" class="sec atel" data-s="2" data-y="-.1" data-g=".8">
+    <div class="wrap">
+      <p class="caps rv">III — The Atelier</p>
+      <h2 class="h2 rv">Twelve hundred hours<br><em>in every piece.</em></h2>
+    </div>
+    <div class="gap"></div>
+    <div class="wrap">
+      <div class="steps">
+        <div class="step rv"><i>01</i><h4>La Fonte</h4><p>Our own 18k alloy is cast in the atelier, tinted with a whisper of palladium.</p></div>
+        <div class="step rv"><i>02</i><h4>Guillochage</h4><p>Dials are engraved on a 1904 rose engine, one pass per breath.</p></div>
+        <div class="step rv"><i>03</i><h4>Assemblage</h4><p>412 components, bevelled and polished by a single pair of hands.</p></div>
+        <div class="step rv"><i>04</i><h4>Le Réglage</h4><p>Forty days of adjustment in six positions before it leaves Genève.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="heritage" class="sec" data-s="3" data-g=".75">
+    <div class="wrap" style="text-align:center">
+      <p class="caps rv">IV — Heritage</p>
+      <div class="nums">
+        <div class="num rv"><b data-n="129">0</b><span>Years in Genève</span></div>
+        <div class="num rv"><b data-n="14">0</b><span>Pieces a year</span></div>
+        <div class="num rv"><b data-n="1200">0</b><span>Hours per watch</span></div>
+        <div class="num rv"><b data-n="412">0</b><span>Components</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="appointment" class="sec" data-s="3" data-x=".45" data-g=".5">
+    <div class="wrap appt">
+      <div class="side rv">
+        <p class="caps">V — Private appointment</p>
+        <h2 class="h2">Hold time<br><em>in your hands.</em></h2>
+        <p>Each Aurum is presented privately, by appointment only, in one of our four salons — or wherever you are.</p>
+        <ul><li>Genève <span>Quai du Rhône 7</span></li><li>Paris <span>Place Vendôme 21</span></li><li>Tokyo <span>Ginza 4-chome</span></li></ul>
+      </div>
+      <form id="form" class="rv" novalidate>
+        <div class="f"><label for="fn">Name</label><input id="fn" name="name" autocomplete="name" required></div>
+        <div class="f"><label for="fe">Email</label><input id="fe" name="email" type="email" autocomplete="email" required></div>
+        <div class="f"><label for="fs">Salon</label><select id="fs" name="salon"><option>Genève</option><option>Paris</option><option>Tokyo</option><option>New York</option></select></div>
+        <div class="f"><label for="fd">Preferred date</label><input id="fd" name="date" type="date"></div>
+        <div class="f w"><label for="fm">The piece you dream of</label><textarea id="fm" name="msg" rows="2"></textarea></div>
+        <button class="btn" type="submit" data-attract>Request a private viewing</button>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer data-s="4" data-g=".7">
+  <div class="wrap">
+    <div class="mark">AURUM</div>
+    <div class="fbar"><span>© 2026 Aurum SA — a fictional maison</span><nav aria-label="Footer"><a href="#maison">Maison</a><a href="#collection">Collection</a><a href="#atelier">Atelier</a><a href="#appointment">Appointment</a></nav><span>Genève · Paris · Tokyo · New York</span></div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const CONFIG = { desktop: 64000, phone: 26000, low: 34000, fallback: 3200, word: 'AURUM', intro: 2.1 };
+  const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
+  const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const FINE = matchMedia('(pointer: fine)').matches;
+  const TAU = Math.PI * 2, sin = Math.sin, cos = Math.cos;
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b - a) * t;
+  const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+  /* ---------- collection SVG watches ---------- */
+  const WC = [['#f7e1a6', '#9c6a1c'], ['#f5c8a8', '#9a5a3c'], ['#e9ecef', '#7d828a']];
+  $$('svg[data-w]').forEach((s) => {
+    const k = +s.dataset.w, [a, b] = WC[k];
+    let t = '';
+    for (let i = 0; i < 60; i++) { const g = i * TAU / 60, l = i % 5 ? 4 : 11, r = 76; t += `<line x1="${(100 + sin(g) * r).toFixed(1)}" y1="${(100 - cos(g) * r).toFixed(1)}" x2="${(100 + sin(g) * (r - l)).toFixed(1)}" y2="${(100 - cos(g) * (r - l)).toFixed(1)}"/>`; }
+    const extra = k === 0 ? `<circle cx="100" cy="138" r="20"/><circle cx="100" cy="138" r="12"/><path d="M100 118v40M80 138h40M86 124l28 28M114 124l-28 28"/>`
+      : k === 1 ? `<circle cx="70" cy="100" r="15"/><circle cx="130" cy="100" r="15"/><circle cx="100" cy="135" r="16"/><path d="M90 135a10 10 0 0 0 20 0" fill="${a}" fill-opacity=".5"/>`
+      : `<circle cx="100" cy="100" r="44" stroke-dasharray="3 4"/><circle cx="76" cy="122" r="16"/><circle cx="126" cy="80" r="12"/><circle cx="100" cy="100" r="26"/><path d="M60 100h80M100 60v80"/>`;
+    s.innerHTML = `<defs><linearGradient id="wg${k}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${a}"/></linearGradient></defs><circle cx="100" cy="100" r="96" fill="url(#wg${k})"/><circle cx="100" cy="100" r="86" fill="#090705"/><g fill="none" stroke="${a}" stroke-opacity=".75" stroke-width="1">${t}${extra}</g><path d="M100 100L72 64M100 100l40 -34" stroke="${a}" stroke-width="2.4" stroke-linecap="round"/><circle cx="100" cy="100" r="3.5" fill="${a}"/>`;
+  });
+
+  /* ---------- shapes (shared by WebGL + 2D fallback) ---------- */
+  let seed = 11;
+  const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  const gs = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+  function wordPts() {
+    const c = document.createElement('canvas'); c.width = 720; c.height = 240;
+    const x = c.getContext('2d'), f = (n) => `400 ${n}px Didot, "Bodoni 72", "Bodoni MT", Georgia, serif`;
+    x.font = f(170); const fs = 170 * Math.min(1, 660 / x.measureText(CONFIG.word).width);
+    x.font = f(fs); x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(CONFIG.word, 360, 124);
+    const d = x.getImageData(0, 0, 720, 240).data, p = [];
+    for (let y = 0; y < 240; y += 2) for (let i = 0; i < 720; i += 2) if (d[(y * 720 + i) * 4 + 3] > 128) p.push(i, y);
+    return p.length ? p : [360, 120];
+  }
+  const HH = 1.2, NK = .05, RB = .78;
+  const prof = (u) => u < .7 ? NK + (RB - NK) * Math.pow(sin(u / .7 * Math.PI / 2), 1.5) : RB * (.45 + .55 * Math.sqrt(Math.max(0, 1 - ((u - .7) / .3) ** 2)));
+  function gen(N) {
+    seed = 11;
+    const A = [0, 1, 2, 3, 4].map(() => new Float32Array(N * 3)), R = new Float32Array(N * 4), K = new Float32Array(N);
+    const wp = wordPts(), wn = wp.length / 2;
+    const put = (k, i, x, y, z) => { A[k][i * 3] = x; A[k][i * 3 + 1] = y; A[k][i * 3 + 2] = z; };
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < 4; j++) R[i * 4 + j] = rnd();
+      const kr = rnd(), kind = kr < .06 ? 1 : kr < .17 ? 2 : 0; K[i] = kind;
+      if (kind === 2) { const x = (rnd() * 2 - 1) * 3.8, y = (rnd() * 2 - 1) * 2.4, z = -3 + rnd() * 5.4; for (let k = 0; k < 5; k++) put(k, i, x, y, z); continue; }
+      let r = rnd(), a = rnd() * TAU, s = rnd() < .5 ? -1 : 1, x = 0, y = 0, z = 0, rr, u;
+      // 0 · hourglass
+      if (kind === 0) {
+        if (r < .42) { u = rnd(); y = s * u * HH; rr = prof(u) * (1 + gs() * .012); x = cos(a) * rr; z = sin(a) * rr; }
+        else if (r < .6) { u = .03 + rnd() * .4; y = u * HH; rr = prof(u) * Math.sqrt(rnd()) * .95; x = cos(a) * rr; z = sin(a) * rr; }
+        else if (r < .8) { rr = .75 * Math.sqrt(rnd()); const top = -.64 - .5 * Math.pow(rr / .78, .8); y = -HH * .97 + rnd() * (top + HH * .97); rr = Math.min(rr, prof(-y / HH) * .95); x = cos(a) * rr; z = sin(a) * rr; }
+        else if (r < .9) { y = s * (rnd() < .5 ? 1.22 : 1.3); rr = rnd() < .7 ? .92 + gs() * .008 : .92 * Math.sqrt(rnd()); x = cos(a) * rr; z = sin(a) * rr; }
+        else if (r < .95) { const b = Math.floor(rnd() * 3) * TAU / 3 + .5; y = (rnd() * 2 - 1) * 1.22; x = cos(b) * .97 + gs() * .012; z = sin(b) * .97 + gs() * .012; }
+        else { rr = .46 + gs() * .006; const zz = sin(a) * rr; x = cos(a) * rr; y = -zz * .34; z = zz * .94; }
+      }
+      put(0, i, x, y, z);
+      // 1 · watch dial (10:10)
+      r = rnd(); a = rnd() * TAU;
+      if (r < .22) { rr = (rnd() < .55 ? 1.15 : 1.07) + gs() * .006; x = sin(a) * rr; y = cos(a) * rr; }
+      else if (r < .36) { const k = Math.floor(rnd() * 12), b = k * TAU / 12, w = (k % 3 ? .022 : .05) * (rnd() * 2 - 1); rr = .78 + rnd() * .2; x = sin(b) * rr + cos(b) * w; y = cos(b) * rr - sin(b) * w; }
+      else if (r < .42) { const b = Math.floor(rnd() * 60) * TAU / 60; x = sin(b) * 1.005; y = cos(b) * 1.005; }
+      else if (r < .52) { const hr = rnd() < .4, b = hr ? 5.32 : 1.05, l = rnd() * (hr ? .52 : .86), w = (rnd() - .5) * .05 * (1 - l * .8); x = sin(b) * l + cos(b) * w; y = cos(b) * l - sin(b) * w; }
+      else if (r < .58) { rr = .19 + gs() * .005; x = sin(a) * rr; y = cos(a) * rr - .52; }
+      else if (r < .62) { rr = .05 * Math.sqrt(rnd()); x = sin(a) * rr; y = cos(a) * rr; }
+      else { rr = (Math.floor(rnd() * 10) + 1) / 10.5 * .7 + .012 * sin(a * 24); x = sin(a) * rr; y = cos(a) * rr; }
+      put(1, i, x, y, gs() * .012);
+      // 2 · wordmark
+      r = rnd();
+      if (kind === 0 && r > .9) { x = (rnd() * 2 - 1) * 1.2; y = -.42 + gs() * .004; if (Math.abs(x) < .08) y += (rnd() - .5) * .1 * (1 - Math.abs(x) / .08); }
+      else { const j = Math.floor(rnd() * wn); x = (wp[j * 2] + rnd() * 2 - 360) / 360 * 1.62; y = -(wp[j * 2 + 1] + rnd() * 2 - 124) / 360 * 1.62 + .08; }
+      put(2, i, x, y, gs() * .035);
+      // 3 · spiral galaxy
+      if (rnd() < .2) { x = gs() * .28; y = gs() * .14; z = gs() * .28; }
+      else { rr = .15 + Math.pow(rnd(), .7) * 1.55; a = Math.floor(rnd() * 2) * Math.PI + rr * 2.7 + gs() * .2 * (1.3 - rr * .4); x = cos(a) * rr; z = sin(a) * rr; y = gs() * .05 * (1.8 - rr); }
+      put(3, i, x, y, z);
+      // 4 · dust explosion
+      const th = rnd() * TAU, ph = Math.acos(rnd() * 2 - 1); rr = 1.3 + Math.sqrt(rnd()) * 3.6;
+      put(4, i, sin(ph) * cos(th) * rr, cos(ph) * rr * .7, Math.min(sin(ph) * sin(th) * rr, 2.6));
+    }
+    return { A, R, K, N };
+  }
+  // per-shape camera: pitch, half-width, half-height
+  const PITCH = [.2, 0, 0, 1.0, .25], FW = [.98, 1.18, 1.66, 1.75, 1.3], FH = [1.32, 1.18, .62, .95, 1.3];
+
+  /* ---------- scroll → scene parameters ---------- */
+  const secs = $$('[data-s]');
+  let W = 1, H = 1, asp = 1, phone = false, anch = [];
+  const cur = { s: 0, x: 0, y: 0, g: 1 }, tgt = { ...cur };
+  function layout() {
+    W = innerWidth; H = innerHeight; asp = W / H; phone = W < 760;
+    const max = document.documentElement.scrollHeight - H;
+    anch = secs.map((el, i) => i ? clamp(el.offsetTop + el.offsetHeight / 2 - H / 2, 0, max) : 0);
+    for (let i = 1; i < anch.length; i++) anch[i] = Math.max(anch[i], anch[i - 1] + 1);
+  }
+  const val = (el, k, d = 0) => { const v = el.dataset[k]; return v == null ? d : +v; };
+  function target() {
+    const y = scrollY; let i = 0;
+    while (i < anch.length - 2 && y >= anch[i + 1]) i++;
+    const t = sstep(.18, .82, (y - anch[i]) / (anch[i + 1] - anch[i])), A = secs[i], B = secs[i + 1];
+    tgt.s = RM ? 0 : lerp(val(A, 's'), val(B, 's'), t);
+    tgt.x = phone ? 0 : lerp(val(A, 'x'), val(B, 'x'), t);
+    tgt.y = phone ? lerp(val(A, 'my'), val(B, 'my'), t) : lerp(val(A, 'y'), val(B, 'y'), t);
+    tgt.g = lerp(val(A, 'g', 1), val(B, 'g', 1), t) * (phone ? (i ? .55 : 1.1) : 1);
+  }
+  function cam(s) {
+    const a = Math.floor(clamp(s, 0, 4)), b = Math.min(4, a + 1), f = clamp(s, 0, 4) - a;
+    const fw = lerp(FW[a], FW[b], f), fh = lerp(FH[a], FH[b], f);
+    return { sc: Math.min(3.4, 5.2 * .84 * asp / fw, 5.2 * (phone ? .46 : .72) / fh), p: lerp(PITCH[a], PITCH[b], f) };
+  }
+
+  /* ---------- pointer (wind) + attracting buttons ---------- */
+  const M = { x: 99, y: 99, vx: 0, vy: 0, lx: 0, ly: 0, t: 0, w: 0 }, AT = { x: 0, y: 0, k: 0, tk: 0, el: null };
+  const toU = (cx, cy) => [(cx / W * 2 - 1) * asp, 1 - cy / H * 2];
+  addEventListener('pointermove', (e) => {
+    const [x, y] = toU(e.clientX, e.clientY), now = performance.now(), dt = Math.max(8, now - M.t) / 1000;
+    if (M.x < 50) { M.vx = lerp(M.vx, (x - M.x) / dt, .3); M.vy = lerp(M.vy, (y - M.y) / dt, .3); }
+    M.x = x; M.y = y; M.t = now;
+  }, { passive: true });
+  const away = () => { M.x = M.y = 99; M.vx = M.vy = 0; };
+  addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') away(); });
+  document.addEventListener('mouseleave', away);
+  $$('[data-attract]').forEach((el) => {
+    el.addEventListener('pointerenter', () => { AT.el = el; AT.tk = 1; });
+    el.addEventListener('pointerleave', () => { AT.tk = 0; });
+    el.addEventListener('focus', () => { AT.el = el; AT.tk = 1; });
+    el.addEventListener('blur', () => { AT.tk = 0; });
+  });
+
+  /* ---------- timing ---------- */
+  const T0 = performance.now();
+  let T = RM ? 3 : 0, last = T0, intro = RM ? 1 : .58, skip = false;
+  addEventListener('wheel', () => { skip = true; }, { passive: true });
+  addEventListener('touchmove', () => { skip = true; }, { passive: true });
+  const ld = $('#ld'), ldn = $('#ldn');
+  function step(now) {
+    const dt = Math.min(now - last, 60) / 1000; last = now; T += dt;
+    if (intro < 1) {
+      const e = (now - T0) / 1000 / CONFIG.intro;
+      intro = Math.min(1, Math.max(skip || scrollY > 20 ? intro + dt * 1.6 : intro, .58 + .42 * (1 - (1 - Math.min(1, e)) ** 2)));
+      ld.style.setProperty('--p', intro); ldn.textContent = String(Math.round(intro * 100)).padStart(3, '0');
+      if (intro >= 1) ld.classList.add('done');
+    }
+    target();
+    const k = 1 - Math.exp(-dt * 2.6);
+    for (const n in cur) cur[n] += (tgt[n] - cur[n]) * (n === 's' ? 1 - Math.exp(-dt * 2) : k);
+    M.vx *= .92; M.vy *= .92;
+    M.w = lerp(M.w, .35 + Math.min(1.6, Math.hypot(M.vx, M.vy) * .25), .1);
+    AT.k += (AT.tk - AT.k) * (1 - Math.exp(-dt * (AT.tk ? 1.8 : 3)));
+    if (AT.el) { const r = AT.el.getBoundingClientRect(); [AT.x, AT.y] = toU(r.left + r.width / 2, r.top + r.height / 2); }
+  }
+
+  /* ---------- WebGL renderer ---------- */
+  const VS = `
+  attribute vec3 a0,a1,a2,a3,a4; attribute vec4 aR; attribute float aK;
+  uniform float uS,uT,uI,uYaw,uPitch,uScale,uAsp,uPx,uGain,uBloom,uWind;
+  uniform vec2 uOff,uM,uMV; uniform vec3 uAt;
+  varying vec3 vC; varying float vA,vF;
+  vec3 rotY(vec3 p,float a){float c=cos(a),s=sin(a);return vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);}
+  vec3 flow(vec3 p,float t){return vec3(sin(p.y*1.7+t*.31)+sin(p.z*2.3-t*.23),sin(p.z*1.9+t*.27)+sin(p.x*2.1+t*.19),sin(p.x*1.6-t*.29)+sin(p.y*2.5+t*.21));}
+  vec3 P(float k){
+    bool st=aK>.5&&aK<1.5, amb=aK>1.5;
+    if(k<.5){
+      if(st){float ph=fract(aR.z*7.+uT*.3),sp=smoothstep(.88,1.,ph);
+        return rotY(vec3((aR.y-.5)*(.025+sp*.45),.05-ph*ph*.69+sp*.03,(aR.w-.5)*(.025+sp*.45)),uT*.15);}
+      return amb?a0:rotY(a0,uT*.15);}
+    if(k<1.5){ if(st){float a=uT*.75,l=mix(-.2,.98,aR.z);return vec3(sin(a)*l,cos(a)*l,.02);} return a1;}
+    if(k<2.5) return a2;
+    if(k<3.5) return amb?a3:rotY(a3,uT*.22/(.35+length(a3.xz)));
+    return a4;
+  }
+  void main(){
+    float s=clamp(uS,0.,3.999),i=floor(s),f=s-i,d=aR.x*.4;
+    float p=smoothstep(d,d+.6,f),mid=sin(p*3.14159),amb=step(1.5,aK),st=step(.5,aK)*(1.-amb);
+    vec3 pos=mix(P(i),P(i+1.),p);
+    pos+=flow(pos*1.1+aR.xyz*3.,uT*(1.+amb))*(.006+amb*.07+mid*(.22+aR.w*.3)+step(3.5,s)*.05);
+    pos=rotY(pos,mid*(.8+aR.w*1.6));
+    float ip=smoothstep(aR.x*.5,aR.x*.5+.5,uI);
+    float ca=aR.z*6.283+uT*.5,cr=1.6+aR.y*2.4;
+    pos=mix(vec3(cos(ca)*cr,(aR.w-.5)*3.,sin(ca)*cr),rotY(pos,(1.-ip)*3.),ip);
+    float cy=cos(uYaw),sy=sin(uYaw),cp=cos(uPitch),sp=sin(uPitch);
+    pos.xz=mat2(cy,-sy,sy,cy)*pos.xz; pos.yz=mat2(cp,-sp,sp,cp)*pos.yz;
+    float vz=5.2-pos.z;
+    if(vz<.5){gl_Position=vec4(2.,2.,2.,1.);gl_PointSize=0.;return;}
+    vec2 q=pos.xy*uScale/vz+uOff*vec2(uAsp,1.);
+    vec2 dm=q-uM; float e=exp(-dot(dm,dm)/.045);
+    q+=dm/(length(dm)+.02)*e*uWind*.17+uMV*e*.035;
+    float oa=uT*(1.4+aR.y)+aR.z*6.283,ak=smoothstep(aR.x*.5,aR.x*.5+.5,uAt.z)*step(aR.w,.3);
+    q=mix(q,uAt.xy+vec2(cos(oa)*(.09+aR.y*.16),sin(oa)*(.035+aR.y*.07)),ak*.94);
+    gl_Position=vec4(q.x/uAsp,q.y,0.,1.);
+    float bl=abs(vz-5.2);
+    float tw=pow(max(0.,sin(uT*(.7+aR.w*1.8)+aR.z*90.)),30.)*step(.6,aR.y)*(1.-amb);
+    float sz=uPx*(.5+aR.y*aR.y*1.5)*(5.2/vz)*(1.+bl*.3)*(1.+tw*2.4);
+    float al=(.45+.55*aR.y)*uGain/(1.+bl*bl*.45)*(1.-amb*.45)*(1.+st*.7)*(1.+mid*.3)*(.8+.2*sin(uT*2.+aR.z*40.))*mix(.5,1.,ip);
+    if(uBloom>.5){sz*=5.;al*=.05;tw=0.;}
+    gl_PointSize=max(sz,1.);
+    vC=mix(vec3(.75,.43,.12),vec3(1.,.8,.42),aR.z); vC=mix(vC,vec3(1.,.94,.78),step(.92,aR.z));
+    vA=al; vF=tw;
+  }`;
+  const FS = `precision mediump float;
+  varying vec3 vC; varying float vA,vF;
+  void main(){vec2 p=gl_PointCoord-.5; float d=length(p); if(d>.5)discard;
+    float a=1.-d*2.; a*=a; float core=smoothstep(.2,0.,d);
+    float g=vF*(smoothstep(.045,0.,abs(p.x))+smoothstep(.045,0.,abs(p.y)))*(1.-d*2.);
+    gl_FragColor=vec4(vC*a*vA+(core*.45*vA+g*.9+core*vF)*vec3(1.,.92,.74),1.);}`;
+
+  const canvas = $('#gl');
+  let gl = null;
+  try { gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' }); } catch (e) {}
+  let draw;
+  function initGL() {
+    const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s); return s; };
+    const pr = gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw gl.getProgramInfoLog(pr);
+    gl.useProgram(pr);
+    const U = {};
+    for (let i = 0, n = gl.getProgramParameter(pr, gl.ACTIVE_UNIFORMS); i < n; i++) { const nm = gl.getActiveUniform(pr, i).name; U[nm] = gl.getUniformLocation(pr, nm); }
+    const low = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+    const G = gen(innerWidth < 760 ? CONFIG.phone : low ? CONFIG.low : CONFIG.desktop);
+    const attr = (name, data, size) => { const loc = gl.getAttribLocation(pr, name); if (loc < 0) return; const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0); };
+    G.A.forEach((a, k) => attr('a' + k, a, 3)); attr('aR', G.R, 4); attr('aK', G.K, 1);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.disable(gl.DEPTH_TEST);
+    let dpr = 1;
+    const size = () => { dpr = Math.min(devicePixelRatio || 1, 1.75); canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); gl.viewport(0, 0, canvas.width, canvas.height); };
+    size(); addEventListener('resize', size);
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); stop = true; });
+    return () => {
+      const c = cam(cur.s);
+      gl.clearColor(.016, .012, .008, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform1f(U.uS, cur.s); gl.uniform1f(U.uT, T); gl.uniform1f(U.uI, intro);
+      gl.uniform1f(U.uYaw, sin(T * .23) * .22 + (M.x < 50 && !RM ? M.x * .05 : 0)); gl.uniform1f(U.uPitch, c.p + (M.y < 50 && !RM ? -M.y * .04 : 0));
+      gl.uniform1f(U.uScale, c.sc); gl.uniform1f(U.uAsp, asp);
+      gl.uniform1f(U.uPx, 2.1 * dpr * clamp(Math.sqrt(H / 900), .8, 1.25)); gl.uniform1f(U.uGain, cur.g);
+      gl.uniform1f(U.uWind, RM ? 0 : M.w); gl.uniform2f(U.uOff, cur.x, cur.y);
+      gl.uniform2f(U.uM, M.x, M.y); gl.uniform2f(U.uMV, M.vx, M.vy);
+      gl.uniform3f(U.uAt, AT.x, AT.y, RM ? 0 : AT.k);
+      gl.uniform1f(U.uBloom, 1); gl.drawArrays(gl.POINTS, 0, Math.floor(G.N / 6));
+      gl.uniform1f(U.uBloom, 0); gl.drawArrays(gl.POINTS, 0, G.N);
+    };
+  }
+
+  /* ---------- 2D fallback ---------- */
+  function init2D() {
+    const c2 = document.createElement('canvas'); c2.id = 'gl'; canvas.replaceWith(c2);
+    const x = c2.getContext('2d'), G = gen(CONFIG.fallback), sm = (a, b, v) => sstep(a, b, v);
+    const size = () => { c2.width = W; c2.height = H; }; size(); addEventListener('resize', size);
+    const rotY = (p, a) => [cos(a) * p[0] + sin(a) * p[2], p[1], -sin(a) * p[0] + cos(a) * p[2]];
+    const P = (k, i) => {
+      const r = G.R, kd = G.K[i], A = G.A[k], p = [A[i * 3], A[i * 3 + 1], A[i * 3 + 2]];
+      if (k === 0 && kd === 1) { const ph = (r[i * 4 + 2] * 7 + T * .3) % 1; return [(r[i * 4 + 1] - .5) * .03, .05 - ph * ph * .69, 0]; }
+      if (k === 1 && kd === 1) { const l = lerp(-.2, .98, r[i * 4 + 2]); return [sin(T * .75) * l, cos(T * .75) * l, 0]; }
+      if (kd !== 2 && k === 0) return rotY(p, T * .15);
+      if (kd !== 2 && k === 3) return rotY(p, T * .22 / (.35 + Math.hypot(p[0], p[2])));
+      return p;
+    };
+    return () => {
+      const c = cam(cur.s), s = clamp(cur.s, 0, 3.999), i0 = Math.floor(s), f = s - i0, cp = cos(c.p), sp = sin(c.p);
+      x.globalCompositeOperation = 'source-over'; x.fillStyle = '#040302'; x.fillRect(0, 0, W, H);
+      x.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < G.N; i++) {
+        const r = G.R, d = r[i * 4] * .4, p = sm(d, d + .6, f), a = P(i0, i), b = P(i0 + 1, i), ip = sm(r[i * 4] * .5, r[i * 4] * .5 + .5, intro);
+        let X = lerp(a[0], b[0], p), Y = lerp(a[1], b[1], p), Z = lerp(a[2], b[2], p);
+        const ca = r[i * 4 + 2] * TAU + T * .5, cr = 1.6 + r[i * 4 + 1] * 2.4;
+        X = lerp(cos(ca) * cr, X, ip); Z = lerp(sin(ca) * cr, Z, ip); Y += sin(T + i) * .01;
+        const y2 = Y * cp - Z * sp, z2 = Y * sp + Z * cp, vz = 5.2 - z2; if (vz < .5) continue;
+        let qx = X * c.sc / vz + cur.x * asp, qy = y2 * c.sc / vz + cur.y;
+        const dx = qx - M.x, dy = qy - M.y, e = Math.exp(-(dx * dx + dy * dy) / .045) * M.w * .17 / (Math.hypot(dx, dy) + .02);
+        qx += dx * e; qy += dy * e;
+        const sz = (1 + r[i * 4 + 1] * 2.2) * 5.2 / vz, g = r[i * 4 + 2];
+        x.fillStyle = `rgba(${255},${(170 + g * 50) | 0},${(70 + g * 60) | 0},${(.35 + .5 * r[i * 4 + 1]) * cur.g})`;
+        x.fillRect((qx / asp + 1) * W / 2, (1 - qy) * H / 2, sz, sz);
+      }
+    };
+  }
+
+  layout();
+  try { if (!gl) throw 0; draw = initGL(); } catch (e) { if (e) console.warn(e); draw = init2D(); }
+
+  let raf = 0, stop = false;
+  function frame(now) { step(now); draw(); raf = requestAnimationFrame(frame); }
+  let rmq = 0;
+  const still = () => { rmq = 0; target(); Object.assign(cur, tgt, { s: 0, x: 0, g: scrollY > H * .5 ? .45 : 1 }); cur.y = phone ? .26 : 0; draw(); };
+  if (RM) addEventListener('scroll', () => { rmq = rmq || requestAnimationFrame(still); }, { passive: true });
+  function run() { cancelAnimationFrame(raf); if (RM) { ld.classList.add('done'); still(); return; } if (!document.hidden && !stop) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+  document.addEventListener('visibilitychange', run);
+  addEventListener('resize', () => { layout(); if (RM) run(); });
+  addEventListener('load', layout);
+  run();
+
+  /* ---------- manifesto word reveal, reveals, counters ---------- */
+  const mani = $('#mani');
+  mani.innerHTML = mani.textContent.split(' ').map((w) => `<span>${w}</span>`).join(' ');
+  const words = [...mani.children];
+  const reveal = () => {
+    const r = mani.getBoundingClientRect(), p = RM ? 1 : clamp((H * .85 - r.top) / (r.height + H * .2), 0, 1);
+    words.forEach((w, i) => { w.style.opacity = i / words.length < p * 1.3 ? 1 : .16; });
+  };
+  addEventListener('scroll', reveal, { passive: true }); reveal();
+  const count = (el) => {
+    const n = +el.dataset.n, t0 = performance.now(), fmt = (v) => Math.round(v).toLocaleString('en-US');
+    if (RM) { el.textContent = fmt(n); return; }
+    const f = (now) => { const t = Math.min(1, (now - t0) / 1800); el.textContent = fmt(n * (1 - (1 - t) ** 4)); if (t < 1) requestAnimationFrame(f); };
+    requestAnimationFrame(f);
+  };
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('in'); io.unobserve(e.target);
+    const b = e.target.querySelector('[data-n]'); if (b) count(b);
+  }), { threshold: .15 });
+  $$('.rv').forEach((el) => io.observe(el));
+
+  /* ---------- nav, form ---------- */
+  const menu = $('.menu'), links = $('#links');
+  menu.addEventListener('click', () => { const o = links.classList.toggle('open'); menu.setAttribute('aria-expanded', o); menu.textContent = o ? 'Close' : 'Menu'; });
+  links.addEventListener('click', (e) => { if (e.target.closest('a')) { links.classList.remove('open'); menu.setAttribute('aria-expanded', false); menu.textContent = 'Menu'; } });
+  $('#form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target.elements, name = f.name.value.trim(), mail = f.email.value.trim();
+    if (!name) { f.name.focus(); return; }
+    if (!/^\S+@\S+\.\S+$/.test(mail)) { f.email.focus(); return; }
+    AT.tk = 0;
+    const d = document.createElement('p'); d.className = 'thanks';
+    d.textContent = `Merci, ${name.split(' ')[0]}. A concierge from our ${f.salon.value} salon will write to you within a day.`;
+    e.target.replaceChildren(d);
+  });
+
+  /* ---------- custom cursor with a trail of gold dust ---------- */
+  if (!FINE || RM) return;
+  document.documentElement.classList.add('fine');
+  const ring = $('.cur'), dot = $('.dot'), fx = $('#fx'), cx = fx.getContext('2d'), P = [];
+  const fsz = () => { fx.width = innerWidth; fx.height = innerHeight; }; fsz(); addEventListener('resize', fsz);
+  let mx = -99, my = -99, rx = -99, ry = -99, live = false;
+  addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    const dx = e.clientX - mx, dy = e.clientY - my; mx = e.clientX; my = e.clientY;
+    if (rx < -50) { rx = mx; ry = my; }
+    ring.style.opacity = dot.style.opacity = 1;
+    const n = Math.min(6, 1 + Math.hypot(dx, dy) / 8 | 0);
+    for (let i = 0; i < n && P.length < 220; i++) P.push({ x: mx - dx * i / n, y: my - dy * i / n, vx: (Math.random() - .5) * .6 - dx * .02, vy: (Math.random() - .5) * .6 - dy * .02, l: 1, s: .6 + Math.random() * 1.8, d: .012 + Math.random() * .02 });
+    ring.classList.toggle('big', !!e.target.closest('a,button,select,input,textarea'));
+    if (!live) { live = true; requestAnimationFrame(tick); }
+  }, { passive: true });
+  document.addEventListener('mouseleave', () => { ring.style.opacity = dot.style.opacity = 0; });
+  function tick() {
+    rx += (mx - rx) * .18; ry += (my - ry) * .18;
+    ring.style.transform = `translate(${rx}px,${ry}px)`; dot.style.transform = `translate(${mx}px,${my}px)`;
+    cx.clearRect(0, 0, fx.width, fx.height); cx.globalCompositeOperation = 'lighter';
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i]; p.x += p.vx; p.y += p.vy; p.vy += .03; p.vx *= .97; p.l -= p.d;
+      if (p.l <= 0) { P.splice(i, 1); continue; }
+      cx.globalAlpha = p.l; cx.fillStyle = p.l > .8 ? '#fff4d6' : '#e8c27a';
+      cx.beginPath(); cx.arc(p.x, p.y, p.s * p.l + .3, 0, TAU); cx.fill();
+    }
+    cx.globalAlpha = 1;
+    if (P.length || Math.abs(mx - rx) + Math.abs(my - ry) > .5) requestAnimationFrame(tick); else live = false;
+  }
+})();
+</script>
+</body>
+</html>

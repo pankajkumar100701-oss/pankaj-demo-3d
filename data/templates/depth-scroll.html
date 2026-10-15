@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fernwise — Depth Scroll Story</title>
+<style>
+  /* Customise: change the colours and fonts below. --mint and --amber are the two
+     accents; each card can override --accent inline. Copy lives in the HTML. */
+  :root {
+    --bg: #05070a;
+    --bg-2: #0b1016;
+    --fg: #eef3f1;
+    --muted: rgb(238 243 241 / 0.62);
+    --line: rgb(255 255 255 / 0.1);
+    --glass: rgb(255 255 255 / 0.045);
+    --mint: #5df0c0;
+    --amber: #ffb35c;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font); line-height: 1.5; overflow-x: clip; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1180px, 100% - 40px); margin-inline: auto; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; font-weight: 600; font-size: 0.95rem; transition: transform 0.2s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-main { background: var(--mint); color: #04130d; box-shadow: 0 8px 30px rgb(93 240 192 / 0.25); }
+  .btn-ghost { border: 1px solid var(--line); background: var(--glass); }
+
+  /* Nav + hero */
+  nav { position: absolute; inset: 0 0 auto; z-index: 20; padding: 18px 0; }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.02em; font-size: 1.1rem; }
+  .logo i { width: 26px; height: 26px; border-radius: 8px; background: conic-gradient(from 200deg, var(--mint), var(--amber), var(--mint)); box-shadow: 0 0 18px rgb(93 240 192 / 0.4); }
+  .links { display: flex; gap: 28px; font-size: 0.92rem; color: var(--muted); }
+  .links a:hover { color: var(--fg); }
+  nav .btn { padding: 9px 16px; font-size: 0.86rem; }
+  .hero { position: relative; min-height: 100vh; display: grid; place-items: center; text-align: center; padding: 110px 0 70px; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: auto -20% -38% -20%; height: 75%; background: radial-gradient(50% 50% at 50% 50%, rgb(93 240 192 / 0.22), transparent 70%), radial-gradient(30% 40% at 70% 40%, rgb(255 179 92 / 0.14), transparent 70%); }
+  .hero > .wrap { position: relative; }
+  .tag { display: inline-flex; gap: 8px; align-items: center; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass); font-size: 0.8rem; color: var(--muted); }
+  .tag b { color: var(--mint); font-weight: 600; }
+  h1 { font-size: clamp(2.4rem, 7vw, 5.4rem); line-height: 1.02; letter-spacing: -0.045em; margin: 22px auto 20px; max-width: 14ch; }
+  h1 em { font-style: normal; background: linear-gradient(90deg, var(--mint), var(--amber)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p { color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); max-width: 34rem; margin: 0 auto 32px; }
+  .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .stats { display: flex; justify-content: center; gap: clamp(20px, 6vw, 64px); margin-top: 56px; flex-wrap: wrap; }
+  .stats div { font-size: 0.82rem; color: var(--muted); }
+  .stats strong { display: block; font-size: 1.6rem; color: var(--fg); letter-spacing: -0.03em; }
+
+  /* Pinned 3D story: the stage sticks while .story scrolls past it */
+  .story { position: relative; height: 560vh; background: linear-gradient(var(--bg), var(--bg-2) 20%, var(--bg-2) 80%, var(--bg)); }
+  .stage {
+    position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden;
+    display: grid; column-gap: 4vw; padding: 0 max(20px, 6vw);
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: 1fr auto auto auto 1fr;
+    grid-template-areas: ". scene" "lead scene" "copy scene" "rail scene" ". scene";
+    perspective: 1100px; perspective-origin: 70% 48%;
+  }
+  .step { display: contents; }
+  .lead { grid-area: lead; display: flex; align-items: flex-end; gap: 18px; margin-bottom: 18px; }
+  .eyebrow { font: 600 0.75rem var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--mint); padding-bottom: 14px; }
+  .num { display: grid; font: 700 clamp(3.4rem, 9vw, 7.5rem)/0.9 var(--font); letter-spacing: -0.06em; order: -1; }
+  .num span { grid-area: 1 / 1; background: linear-gradient(180deg, var(--fg), rgb(238 243 241 / 0.15)); -webkit-background-clip: text; background-clip: text; color: transparent; opacity: 0; transform: translateY(40%); transition: opacity 0.45s, transform 0.6s cubic-bezier(.2,.8,.2,1); }
+  .num span.on { opacity: 1; transform: none; }
+  .copy { grid-area: copy; align-self: start; opacity: 0; transform: translateY(18px); transition: opacity 0.45s, transform 0.6s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+  .step.on .copy { opacity: 1; transform: none; pointer-events: auto; }
+  .copy small { display: none; font: 600 0.75rem var(--mono); color: var(--mint); letter-spacing: 0.15em; }
+  .copy h2 { font-size: clamp(1.4rem, 3vw, 2.4rem); line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 12px; }
+  .copy p { color: var(--muted); max-width: 30rem; font-size: clamp(0.9rem, 1.3vw, 1.05rem); }
+  .rail { grid-area: rail; position: relative; display: flex; justify-content: space-between; width: min(280px, 100%); margin-top: 28px; }
+  .rail::before, .rail b { content: ""; position: absolute; left: 5px; right: 5px; top: 50%; height: 2px; margin-top: -1px; background: var(--line); }
+  .rail b { background: linear-gradient(90deg, var(--mint), var(--amber)); transform-origin: left; transform: scaleX(0); }
+  .rail i { position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--bg-2); border: 2px solid rgb(255 255 255 / 0.25); transition: transform 0.3s, border-color 0.3s; }
+  .rail i.on { border-color: var(--mint); transform: scale(1.35); box-shadow: 0 0 14px var(--mint); }
+  .floor { grid-area: 1 / 1 / -1 / -1; align-self: end; justify-self: center; width: 180%; height: 70%; pointer-events: none;
+    background: repeating-linear-gradient(90deg, rgb(93 240 192 / 0.13) 0 1px, transparent 1px 80px), repeating-linear-gradient(0deg, rgb(93 240 192 / 0.13) 0 1px, transparent 1px 80px);
+    -webkit-mask-image: radial-gradient(60% 70% at 50% 0%, #000, transparent); mask-image: radial-gradient(60% 70% at 50% 0%, #000, transparent);
+    transform-origin: 50% 0; transform: rotateX(80deg); }
+  .glow { grid-area: scene; align-self: center; justify-self: center; width: 70%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, rgb(93 240 192 / 0.18), transparent); pointer-events: none; }
+
+  /* Cards: transform/opacity set from JS every frame */
+  .card {
+    --accent: var(--mint);
+    grid-area: scene; align-self: center; justify-self: center; position: relative;
+    width: min(440px, 100%); height: min(470px, 66vh); padding: 22px; border-radius: 24px;
+    display: flex; flex-direction: column; gap: 16px; overflow: hidden;
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.02) 40%), #0c1219;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    box-shadow: 0 40px 80px -20px #000, inset 0 1px 0 rgb(255 255 255 / 0.08);
+    will-change: transform, opacity; backface-visibility: hidden;
+  }
+  .card::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1px var(--accent); opacity: 0; transition: opacity 0.5s; }
+  .step.on .card::after { opacity: 0.45; }
+  .card header { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--muted); }
+  .card header b { font: 600 0.72rem var(--mono); color: var(--accent); letter-spacing: 0.12em; }
+  .ui { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; gap: 10px; }
+  /* Shared "animate in" helper: children with .in appear when the step is active */
+  .in { opacity: 0; transform: translateY(14px); transition: opacity 0.5s, transform 0.6s cubic-bezier(.2,.8,.2,1); transition-delay: calc(var(--d, 0) * 90ms + 150ms); }
+  .step.on .in { opacity: 1; transform: none; }
+
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); font-size: 0.86rem; }
+  .row .ico { width: 30px; height: 30px; border-radius: 9px; flex: none; background: var(--c); opacity: 0.85; }
+  .row span { flex: 1; min-width: 0; }
+  .row em { font-style: normal; color: var(--muted); font-size: 0.78rem; display: block; }
+  .tog { position: relative; width: 38px; height: 22px; border-radius: 99px; background: rgb(255 255 255 / 0.12); flex: none; overflow: hidden; }
+  .tog::before { content: ""; position: absolute; inset: 0; background: var(--accent); opacity: 0; transition: opacity 0.4s; transition-delay: inherit; }
+  .tog::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.4s cubic-bezier(.3,1.4,.5,1); transition-delay: inherit; }
+  .step.on .tog::before { opacity: 1; }
+  .step.on .tog::after { transform: translateX(16px); }
+  .tog { transition-delay: calc(var(--d, 0) * 160ms + 400ms); }
+  .total { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; }
+  .total strong { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.03em; }
+  .total small { color: var(--accent); font-weight: 600; }
+
+  .bars { flex: 1; min-height: 60px; display: flex; align-items: flex-end; gap: 8px; padding-top: 10px; border-bottom: 1px solid var(--line); }
+  .bars i { flex: 1; height: var(--h); border-radius: 8px 8px 3px 3px; background: linear-gradient(var(--accent), rgb(93 240 192 / 0.15)); transform: scaleY(0); transform-origin: bottom; transition: transform 0.8s cubic-bezier(.2,.9,.2,1); transition-delay: calc(var(--d) * 70ms + 200ms); }
+  .bars i.hi { background: linear-gradient(var(--amber), rgb(255 179 92 / 0.15)); }
+  .step.on .bars i { transform: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { font-size: 0.74rem; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .chips span:first-child { color: var(--accent); border-color: var(--accent); }
+
+  .donut-wrap { flex: 1; min-height: 0; display: flex; align-items: center; gap: 18px; }
+  .donut { width: min(160px, 40%); aspect-ratio: 1; border-radius: 50%; flex: none; display: grid; place-items: center; text-align: center; font-size: 0.72rem; color: var(--muted);
+    background: radial-gradient(closest-side, #0c1219 64%, transparent 65%), conic-gradient(var(--mint) 0 38%, var(--amber) 0 62%, #7f8cff 0 80%, #ff6f91 0 100%);
+    transform: rotate(-120deg) scale(0.6); opacity: 0; transition: transform 1s cubic-bezier(.2,.9,.2,1) 0.15s, opacity 0.5s 0.15s; }
+  .donut strong { display: block; font-size: 1.2rem; color: var(--fg); }
+  .step.on .donut { transform: none; opacity: 1; }
+  .legend { flex: 1; display: grid; gap: 8px; font-size: 0.8rem; }
+  .legend div { display: flex; align-items: center; gap: 8px; }
+  .legend i { width: 9px; height: 9px; border-radius: 3px; background: var(--c); }
+  .legend b { margin-left: auto; font-weight: 600; }
+  .note { font-size: 0.8rem; color: var(--muted); padding: 10px 12px; border-radius: 12px; background: rgb(255 179 92 / 0.08); border: 1px solid rgb(255 179 92 / 0.25); }
+  .note b { color: var(--amber); }
+
+  .phone { align-self: center; width: min(210px, 64%); flex: 1; min-height: 0; border-radius: 30px; padding: 26px 14px 14px; position: relative; background: #070b10; border: 6px solid #1b232c; display: flex; flex-direction: column; gap: 10px; }
+  .phone::before { content: ""; position: absolute; top: 7px; left: 50%; width: 52px; height: 9px; margin-left: -26px; border-radius: 9px; background: #1b232c; }
+  .goal { font-size: 0.74rem; display: grid; gap: 5px; }
+  .goal div { display: flex; justify-content: space-between; }
+  .goal div b { color: var(--muted); font-weight: 500; }
+  .meter { height: 7px; border-radius: 9px; background: rgb(255 255 255 / 0.08); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: var(--w); border-radius: 9px; background: linear-gradient(90deg, var(--accent), var(--amber)); transform: scaleX(0); transform-origin: left; transition: transform 1s cubic-bezier(.2,.9,.2,1); transition-delay: calc(var(--d) * 120ms + 250ms); }
+  .step.on .meter i { transform: none; }
+  .toast { margin-top: auto; font-size: 0.7rem; padding: 8px 10px; border-radius: 12px; background: rgb(93 240 192 / 0.12); border: 1px solid rgb(93 240 192 / 0.3); }
+
+  .spark { position: relative; height: 34%; min-height: 60px; }
+  .spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .spark .mask { position: absolute; inset: -4px; background: #0e141b; transform-origin: right; transition: transform 1.2s cubic-bezier(.4,0,.2,1) 0.2s; }
+  .step.on .spark .mask { transform: scaleX(0); }
+  .bubble { align-self: flex-start; max-width: 88%; font-size: 0.8rem; padding: 9px 13px; border-radius: 14px 14px 14px 4px; background: var(--glass); border: 1px solid var(--line); }
+  .bubble.me { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: rgb(93 240 192 / 0.14); border-color: rgb(93 240 192 / 0.3); }
+
+  /* Final CTA + footer */
+  .final { padding: clamp(80px, 14vw, 150px) 0 60px; text-align: center; position: relative; }
+  .final h2 { font-size: clamp(2rem, 5.4vw, 4rem); letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 18px; }
+  .final p { color: var(--muted); margin: 0 auto 30px; max-width: 30rem; }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 34px; font-size: 0.84rem; color: var(--muted); }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+  footer nav { position: static; padding: 0; display: flex; gap: 20px; }
+
+  @media (max-width: 820px) {
+    .links { display: none; }
+    .stage {
+      grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr);
+      grid-template-areas: "lead" "copy" "rail" "scene";
+      padding: 22px 20px 22px; perspective-origin: 50% 70%; perspective: 900px;
+    }
+    .lead { margin-bottom: 6px; gap: 12px; }
+    .eyebrow { padding-bottom: 8px; }
+    .num { font-size: 3.2rem; }
+    .copy h2 { margin-bottom: 6px; }
+    .rail { margin: 14px 0 0; }
+    .card { width: min(400px, 100%); height: min(380px, 100%); padding: 16px; gap: 12px; border-radius: 20px; margin-top: 18px; }
+    .glow { width: 100%; }
+    .row { padding: 8px 10px; }
+  }
+  @media (max-width: 820px) and (max-height: 640px) {
+    .copy p { font-size: 0.84rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .num { font-size: 2.6rem; }
+    .row:nth-child(3), .legend div:nth-child(4), .goal:nth-child(3) { display: none; }
+  }
+
+  /* Reduced motion: no pinning, just a stacked list */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .story { height: auto; padding: 80px 0; }
+    .stage { position: static; height: auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: none; grid-template-rows: none; gap: 56px; perspective: none; overflow: visible; }
+    .step { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 28px; align-items: center; }
+    .lead, .rail, .floor, .glow { display: none; }
+    .copy, .card { grid-area: auto; opacity: 1 !important; transform: none !important; pointer-events: auto; }
+    .copy small { display: block; margin-bottom: 8px; }
+    .card { height: 420px; margin: 0; }
+    *, *::before, *::after { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a href="#" class="logo"><i></i>Fernwise</a>
+    <div class="links"><a href="#story">How it works</a><a href="#">Pricing</a><a href="#">Security</a></div>
+    <a href="#join" class="btn btn-main">Get the app</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="tag"><b>New</b> Autopilot goals are live</span>
+    <h1>Your money, <em>in focus</em> at last.</h1>
+    <p>Fernwise links every account, budgets itself and nudges your savings forward — so you can stop staring at spreadsheets.</p>
+    <div class="ctas">
+      <a href="#join" class="btn btn-main">Start free</a>
+      <a href="#story" class="btn btn-ghost">See how it works ↓</a>
+    </div>
+    <div class="stats">
+      <div><strong>240k+</strong>people saving</div>
+      <div><strong>$1,180</strong>avg. saved / yr</div>
+      <div><strong>4.9★</strong>app rating</div>
+    </div>
+  </div>
+</header>
+
+<section class="story" id="story" aria-label="How Fernwise works">
+  <div class="stage">
+    <div class="floor" aria-hidden="true"></div>
+    <div class="glow" aria-hidden="true"></div>
+    <div class="lead">
+      <div class="eyebrow">How it works</div>
+      <div class="num" aria-hidden="true"><span>01</span><span>02</span><span>03</span><span>04</span><span>05</span></div>
+    </div>
+    <div class="rail" aria-hidden="true"><b></b><i></i><i></i><i></i><i></i><i></i></div>
+
+    <article class="step">
+      <div class="copy"><small>STEP 01</small><h2>Link every account in a minute.</h2><p>Banks, cards and brokerages sync in read-only mode. One balance, always current.</p></div>
+      <div class="card">
+        <header><span>Accounts</span><b>SYNCING</b></header>
+        <div class="ui">
+          <div class="row in" style="--d:0"><i class="ico" style="--c:#5df0c0"></i><span>Northfield Bank<em>Checking · 4821</em></span><div class="tog"></div></div>
+          <div class="row in" style="--d:1"><i class="ico" style="--c:#7f8cff"></i><span>Lumen Card<em>Credit · 0093</em></span><div class="tog" style="--d:1"></div></div>
+          <div class="row in" style="--d:2"><i class="ico" style="--c:#ffb35c"></i><span>Atlas Invest<em>Brokerage · 7710</em></span><div class="tog" style="--d:2"></div></div>
+          <div class="total in" style="--d:3"><span><em style="font-style:normal;color:var(--muted);font-size:.8rem">Net worth</em><br><strong>$48,210</strong></span><small>+3.2% this month</small></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="copy"><small>STEP 02</small><h2>Budgets that build themselves.</h2><p>Fernwise learns your rhythm from three months of history and drafts a plan you can tweak.</p></div>
+      <div class="card" style="--accent:#5df0c0">
+        <header><span>Weekly spend</span><b>AUTO-BUDGET</b></header>
+        <div class="ui">
+          <div class="bars"><i style="--h:42%;--d:0"></i><i style="--h:68%;--d:1"></i><i style="--h:35%;--d:2"></i><i class="hi" style="--h:92%;--d:3"></i><i style="--h:56%;--d:4"></i><i style="--h:74%;--d:5"></i><i style="--h:48%;--d:6"></i></div>
+          <div class="chips in" style="--d:3"><span>Groceries $120</span><span>Transport $45</span><span>Fun $60</span></div>
+          <div class="total in" style="--d:4"><strong>$412</strong><small>$88 under plan</small></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="copy"><small>STEP 03</small><h2>See exactly where it goes.</h2><p>Every transaction is categorised for you, with gentle flags when something creeps up.</p></div>
+      <div class="card" style="--accent:#ffb35c">
+        <header><span>October</span><b>INSIGHTS</b></header>
+        <div class="ui">
+          <div class="donut-wrap">
+            <div class="donut"><div><strong>$2,640</strong>spent</div></div>
+            <div class="legend">
+              <div class="in" style="--d:1"><i style="--c:#5df0c0"></i>Home<b>38%</b></div>
+              <div class="in" style="--d:2"><i style="--c:#ffb35c"></i>Food<b>24%</b></div>
+              <div class="in" style="--d:3"><i style="--c:#7f8cff"></i>Travel<b>18%</b></div>
+              <div class="in" style="--d:4"><i style="--c:#ff6f91"></i>Other<b>20%</b></div>
+            </div>
+          </div>
+          <div class="note in" style="--d:5"><b>Heads up:</b> takeaway is up 31% vs. last month.</div>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="copy"><small>STEP 04</small><h2>Goals on autopilot.</h2><p>Round-ups and smart transfers move spare cash toward the things you actually care about.</p></div>
+      <div class="card" style="--accent:#5df0c0">
+        <header><span>Goals</span><b>AUTOPILOT</b></header>
+        <div class="ui">
+          <div class="phone in">
+            <div class="goal"><div>Lisbon trip<b>$1,420 / 2k</b></div><div class="meter"><i style="--w:71%;--d:0"></i></div></div>
+            <div class="goal"><div>Emergency fund<b>$5.1k / 6k</b></div><div class="meter"><i style="--w:85%;--d:1"></i></div></div>
+            <div class="goal"><div>New laptop<b>$380 / 1.8k</b></div><div class="meter"><i style="--w:21%;--d:2"></i></div></div>
+            <div class="toast in" style="--d:6">+$24.60 rounded up this week</div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="copy"><small>STEP 05</small><h2>A calm recap every Sunday.</h2><p>One short message: what changed, what's coming, and one thing worth doing next.</p></div>
+      <div class="card" style="--accent:#ffb35c">
+        <header><span>Sunday recap</span><b>WEEK 41</b></header>
+        <div class="ui">
+          <div class="spark">
+            <svg viewBox="0 0 300 80" preserveAspectRatio="none" aria-hidden="true">
+              <defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffb35c" stop-opacity=".35"/><stop offset="1" stop-color="#ffb35c" stop-opacity="0"/></linearGradient></defs>
+              <path d="M0 62 L40 55 L80 58 L120 40 L160 46 L200 28 L240 32 L300 10 L300 80 L0 80Z" fill="url(#sg)"/>
+              <path d="M0 62 L40 55 L80 58 L120 40 L160 46 L200 28 L240 32 L300 10" fill="none" stroke="#ffb35c" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
+            </svg>
+            <div class="mask"></div>
+          </div>
+          <div class="bubble in" style="--d:3">Savings up <b>$212</b> this week — your best since June.</div>
+          <div class="bubble in" style="--d:5">Rent goes out Tuesday. You're covered.</div>
+          <div class="bubble me in" style="--d:7">Nice. Move $50 to Lisbon?</div>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="final" id="join">
+  <div class="wrap">
+    <span class="tag"><b>Free</b> for your first 60 days</span>
+    <h2 style="margin-top:22px">Bring your money<br>into focus.</h2>
+    <p>Join 240,000 people who check their finances in seconds, not evenings.</p>
+    <div class="ctas"><a href="#" class="btn btn-main">Download Fernwise</a><a href="#" class="btn btn-ghost">Talk to us</a></div>
+  </div>
+</section>
+<footer>
+  <div class="wrap">
+    <span>© 2026 Fernwise Labs</span>
+    <nav><a href="#">Privacy</a><a href="#">Terms</a><a href="#story">How it works</a></nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const story = document.getElementById("story");
+  const steps = [...story.querySelectorAll(".step")];
+  const cards = steps.map((s) => s.querySelector(".card"));
+  const nums = [...story.querySelectorAll(".num span")];
+  const dots = [...story.querySelectorAll(".rail i")];
+  const fill = story.querySelector(".rail b");
+  const floor = story.querySelector(".floor");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const N = cards.length;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  let cur = 0, target = 0, raf = 0, visible = true, active = -1;
+
+  function setActive(i) {
+    if (i === active) return;
+    active = i;
+    steps.forEach((s, k) => s.classList.toggle("on", k === i));
+    nums.forEach((s, k) => s.classList.toggle("on", k === i));
+    dots.forEach((d, k) => d.classList.toggle("on", k <= i));
+  }
+
+  function read() {
+    const range = story.offsetHeight - innerHeight;
+    target = clamp(-story.getBoundingClientRect().top / range, 0, 1);
+  }
+
+  function render() {
+    const narrow = innerWidth <= 820;
+    const s = -0.3 + cur * (N - 1 + 0.3); // slight lead-in so card 1 also arrives from depth
+    cards.forEach((card, i) => {
+      const d = i - s, a = Math.abs(d);
+      const e = Math.sign(d) * Math.max(0, (a - 0.14) / 0.86); // flat zone = card "settles"
+      let x = 0, y = 0, z = 0, rx = 0, ry = 0, o = 1;
+      if (e > 0) {
+        x = narrow ? 0 : e * 70; y = e * (narrow ? -34 : -40); z = -e * 560;
+        rx = e * 4; ry = narrow ? 0 : -e * 10; o = 1 - e * 0.5;
+      } else if (e < 0) {
+        const k = -e;
+        x = narrow ? 0 : -k * 80; y = k * (narrow ? 150 : 120); z = k * 820;
+        rx = -k * 26; ry = narrow ? 0 : k * 8; o = 1 - k * 1.5;
+      }
+      o = clamp(o, 0, 1);
+      card.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+      card.style.opacity = o;
+      card.style.visibility = o < 0.01 ? "hidden" : "visible";
+      card.style.zIndex = Math.round(500 - d * 100);
+    });
+    setActive(clamp(Math.round(s), 0, N - 1));
+    fill.style.transform = `scaleX(${cur})`;
+    floor.style.transform = `rotateX(80deg) translateY(${-(cur * 2400) % 80}px)`;
+  }
+
+  function tick() {
+    raf = 0;
+    read();
+    cur += (target - cur) * 0.12;
+    if (Math.abs(target - cur) < 0.0005) cur = target;
+    render();
+    if (cur !== target) kick();
+  }
+  function kick() {
+    if (!raf && visible && !document.hidden && !reduce.matches) raf = requestAnimationFrame(tick);
+  }
+
+  if (reduce.matches) {
+    steps.forEach((s) => s.classList.add("on"));
+    return;
+  }
+  new IntersectionObserver(([en]) => { visible = en.isIntersecting; kick(); }).observe(story);
+  addEventListener("scroll", kick, { passive: true });
+  addEventListener("resize", kick);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && raf) { cancelAnimationFrame(raf); raf = 0; } else kick();
+  });
+  read(); cur = target; render();
+})();
+</script>
+</body>
+</html>

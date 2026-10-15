@@ -1,0 +1,580 @@
+<!doctype html>
+<!--
+  Double Six — Dice Roll (free template)
+  Customise: edit the :root tokens below (paper, felt, wood and dice colours,
+  fonts). Throw strength, gravity, bounciness and how the dice settle live in
+  the CONFIG object at the top of the script, together with the GAMES list:
+  the dice total (2–12) picks a game, and the total doubles as a discount.
+  Pure CSS 3D + a tiny physics loop. No dependencies, no external requests.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Double Six — Dice Roll</title>
+<style>
+  :root {
+    --paper: #f5eee1;      /* page background */
+    --paper-2: #ebe1cf;
+    --ink: #1f1a14;
+    --muted: #6d6256;
+    --line: rgba(31, 26, 20, .14);
+    --felt: #1e6a49;       /* table felt */
+    --felt-dark: #0f3f2b;
+    --wood: #8a5530;
+    --wood-dark: #4f2c15;
+    --red: #d6423a;        /* brand red, also die B */
+    --mustard: #e9b23b;
+    --die-a: #f8f3e9; --pip-a: #1f1a14;   /* ivory die */
+    --die-b: #d6423a; --pip-b: #fff7ec;   /* red die */
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --display: 'Rockwell', 'Roboto Slab', 'Cooper Black', 'Georgia', serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.55; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
+
+  /* ---------- nav ---------- */
+  nav { position: sticky; top: 0; z-index: 30; background: rgba(245, 238, 225, .86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; font: 700 20px/1 var(--display); letter-spacing: -.01em; }
+  .logo svg { width: 30px; height: 30px; }
+  .links { display: flex; gap: 28px; font-size: 15px; font-weight: 500; color: var(--muted); }
+  .links a:hover { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 50px; padding: 0 24px; border-radius: 999px; font-weight: 700; font-size: 15px; border: 2px solid var(--ink); background: transparent; transition: transform .15s, box-shadow .15s, background .2s; white-space: nowrap; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 0 var(--ink); }
+  .btn:active { transform: translateY(1px); box-shadow: none; }
+  .btn.red { background: var(--red); color: #fff; }
+  .btn svg { width: 20px; height: 20px; }
+  .bar .btn { height: 40px; padding: 0 18px; font-size: 14px; }
+  .btn:focus-visible { outline: 3px solid var(--mustard); outline-offset: 3px; }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; overflow: hidden; background: radial-gradient(60% 70% at 75% 45%, #fff8ea, transparent 70%), var(--paper); }
+  .hero-grid { display: grid; grid-template-columns: .9fr 1.1fr; align-items: center; gap: 24px; min-height: calc(100vh - 64px); min-height: calc(100svh - 64px); padding-block: 32px; }
+  .tag { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--paper); font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .tag i { width: 8px; height: 8px; border-radius: 50%; background: #5fd38d; box-shadow: 0 0 0 3px rgba(95, 211, 141, .25); }
+  h1 { margin-top: 22px; font: 800 clamp(42px, 6vw, 82px)/.98 var(--display); letter-spacing: -.035em; text-wrap: balance; }
+  h1 em { font-style: normal; color: var(--red); }
+  .sub { margin-top: 20px; max-width: 470px; font-size: clamp(16px, 1.4vw, 18px); color: var(--muted); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 30px; font-size: 14px; color: var(--muted); }
+  .facts b { color: var(--ink); }
+
+  .stage { position: relative; perspective: 1100px; perspective-origin: 50% 0%; padding-top: 10px; }
+  .table { position: relative; width: 100%; aspect-ratio: 1.55; transform-style: preserve-3d; transform: rotateX(48deg) translateY(-4%); --rim: clamp(12px, 1.6vw, 20px); border-radius: 30px; border: var(--rim) solid transparent; cursor: pointer;
+    background:
+      radial-gradient(70% 80% at 45% 40%, color-mix(in srgb, var(--felt) 85%, #fff), var(--felt) 55%, var(--felt-dark)) padding-box,
+      repeating-linear-gradient(92deg, rgba(255, 255, 255, .06) 0 2px, transparent 2px 9px),
+      linear-gradient(160deg, color-mix(in srgb, var(--wood) 80%, #fff) , var(--wood) 40%, var(--wood-dark)) border-box;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, .45), 0 60px 60px -30px rgba(40, 25, 10, .45); }
+  .table::before { content: ""; position: absolute; inset: 0; border-radius: 12px; pointer-events: none; opacity: .35;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .table::after { content: ""; position: absolute; left: calc(var(--rim) * -1 + 10px); right: calc(var(--rim) * -1 + 10px); top: 100%; height: clamp(16px, 2.4vw, 28px); margin-top: var(--rim); transform-origin: top; transform: rotateX(-90deg); border-radius: 0 0 12px 12px;
+    background: linear-gradient(var(--wood-dark), #2e180a); }
+  .props { position: absolute; inset: 0; pointer-events: none; }
+  .props svg { position: absolute; }
+  .die, .shadow { position: absolute; left: 50%; top: 50%; width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); }
+  .die { --s: clamp(46px, 7.6vw, 88px); transform-style: preserve-3d; will-change: transform; }
+  .shadow { --s: clamp(46px, 7.6vw, 88px); border-radius: 30%; background: rgba(0, 18, 8, .55); filter: blur(7px); will-change: transform, opacity; }
+  .face, .core { position: absolute; inset: 0; }
+  .face { display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 14%; border-radius: 22%;
+    background: radial-gradient(circle at 50% 50%, var(--die) 58%, color-mix(in srgb, var(--die) 82%, #000) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35), inset 0 -3px 8px rgba(0, 0, 0, .18); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .face::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #000; opacity: var(--sh, 0); }
+  .core { inset: 4%; background: color-mix(in srgb, var(--die) 75%, #000); border-radius: 10%; }
+  .face i { width: 74%; aspect-ratio: 1; place-self: center; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--pip) 70%, #888), var(--pip) 62%); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .45), 0 1px 0 rgba(255, 255, 255, .5); }
+  .die.a { --die: var(--die-a); --pip: var(--pip-a); }
+  .die.b { --die: var(--die-b); --pip: var(--pip-b); }
+  .die.b .face i { background: radial-gradient(circle at 45% 40%, #fff, #eadfce 75%); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .28), 0 1px 0 rgba(0, 0, 0, .12); }
+
+  .result { position: relative; z-index: 2; display: flex; align-items: center; gap: 16px; margin: clamp(-30px, -2vw, -10px) auto 0; max-width: 520px; padding: 14px 16px 14px 14px; border-radius: 20px; background: #fffaf1; border: 2px solid var(--ink); box-shadow: 0 6px 0 var(--ink); }
+  .total { flex: none; width: 62px; height: 62px; border-radius: 16px; display: grid; place-items: center; background: var(--ink); color: var(--paper); font: 800 30px/1 var(--display); }
+  .result small { display: block; font: 600 11px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .result strong { display: block; margin-top: 4px; font: 700 19px/1.2 var(--display); }
+  .result p { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+  .result .code { margin-left: auto; flex: none; text-align: center; padding: 8px 12px; border-radius: 12px; border: 2px dashed var(--red); color: var(--red); font: 700 13px/1.2 var(--mono); }
+  .result .code b { display: block; font-size: 20px; }
+  .result.pop { animation: pop .5s cubic-bezier(.3, 1.6, .5, 1); }
+  @keyframes pop { 0% { transform: scale(.94); } 100% { transform: none; } }
+
+  /* ---------- sections ---------- */
+  section { padding: clamp(72px, 10vw, 120px) 0; }
+  .kicker { font: 700 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--red); }
+  h2 { margin-top: 14px; font: 800 clamp(32px, 4.4vw, 54px)/1.04 var(--display); letter-spacing: -.03em; max-width: 700px; text-wrap: balance; }
+  .lead { margin-top: 14px; max-width: 560px; color: var(--muted); font-size: 17px; }
+  .games { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 44px; }
+  .game { border-radius: var(--radius); background: #fffaf1; border: 2px solid var(--ink); overflow: hidden; transition: transform .25s, box-shadow .25s; }
+  .game:hover { transform: translateY(-4px) rotate(-.6deg); box-shadow: 0 6px 0 var(--ink); }
+  .game.picked { box-shadow: 0 0 0 4px var(--mustard), 0 6px 0 var(--ink); transform: translateY(-4px); }
+  .cover { aspect-ratio: 16 / 10; display: block; width: 100%; border-bottom: 2px solid var(--ink); }
+  .game > div { padding: 14px 16px 16px; }
+  .game.again { display: grid; place-content: center; gap: 14px; padding: 24px; text-align: center; background: var(--ink); color: var(--paper); }
+  .game.again p { color: rgba(245, 238, 225, .7); }
+  .game.again strong { font: 700 22px/1.15 var(--display); }
+  .game h3 { font: 700 19px/1.2 var(--display); display: flex; justify-content: space-between; gap: 8px; }
+  .game h3 span { font: 700 12px/1.6 var(--mono); color: var(--red); }
+  .game p { font-size: 13.5px; color: var(--muted); margin-top: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chips em { font: normal 600 11.5px/1 var(--mono); padding: 6px 8px; border-radius: 999px; background: var(--paper-2); }
+  .more { margin-top: 22px; font-size: 15px; color: var(--muted); }
+
+  .menu { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 44px; }
+  .col { padding: 26px; border-radius: var(--radius); background: var(--paper-2); }
+  .col h3 { font: 700 21px/1.2 var(--display); margin-bottom: 14px; }
+  .item { display: flex; align-items: baseline; gap: 8px; padding: 8px 0; font-size: 15px; }
+  .item::after { content: ""; order: 2; flex: 1; border-bottom: 2px dotted rgba(31, 26, 20, .25); }
+  .item b { order: 3; font: 700 14px var(--mono); }
+  .item small { display: block; color: var(--muted); font-size: 12.5px; }
+  .col.dark { background: var(--felt-dark); color: #f3eadb; }
+  .col.dark .item::after { border-color: rgba(255, 255, 255, .2); }
+  .col.dark small { color: rgba(243, 234, 219, .65); }
+
+  .book { display: grid; grid-template-columns: 1fr 1.15fr; gap: clamp(28px, 5vw, 80px); align-items: start; }
+  .perks { list-style: none; margin-top: 28px; display: grid; gap: 14px; }
+  .perks li { display: flex; gap: 12px; font-size: 15.5px; }
+  .perks li::before { content: "⚀"; font-size: 22px; line-height: 1; color: var(--red); }
+  .perks li:nth-child(2)::before { content: "⚂"; } .perks li:nth-child(3)::before { content: "⚄"; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: clamp(20px, 3vw, 32px); border-radius: 24px; background: #fffaf1; border: 2px solid var(--ink); box-shadow: 0 8px 0 var(--ink); }
+  label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+  label.full { grid-column: 1 / -1; }
+  input, select { width: 100%; height: 48px; padding: 0 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--paper); font-size: 15px; outline: none; }
+  input:focus, select:focus { border-color: var(--ink); }
+  form .btn { grid-column: 1 / -1; }
+  .note { grid-column: 1 / -1; font-size: 14px; min-height: 1.4em; color: var(--felt); font-weight: 600; }
+
+  footer { background: var(--ink); color: rgba(245, 238, 225, .7); padding: 40px 0; font-size: 14px; }
+  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; }
+  .foot div { display: flex; flex-wrap: wrap; gap: 22px; }
+  .foot a:hover { color: #fff; }
+
+  @media (max-width: 920px) {
+    .links { display: none; }
+    .hero-grid { grid-template-columns: 1fr; min-height: 0; padding-block: 28px 48px; gap: 8px; }
+    .copy { text-align: center; }
+    .sub { margin-inline: auto; }
+    .ctas, .facts { justify-content: center; }
+    .stage { order: 2; max-width: 600px; margin: 0 auto; width: 100%; }
+    .games { grid-template-columns: repeat(2, 1fr); }
+    .menu, .book { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .sub, .facts { display: none; }
+    .ctas { margin-top: 20px; }
+    .ctas .btn { flex: 1 1 auto; height: 46px; padding: 0 16px; }
+    .result { gap: 12px; padding: 12px; }
+    .total { width: 50px; height: 50px; font-size: 24px; }
+    .result strong { font-size: 16px; }
+    .result .code b { font-size: 16px; }
+    .games { gap: 10px; }
+    .game > div { padding: 10px 12px 12px; }
+    .game h3 { font-size: 16px; flex-direction: column; gap: 0; }
+    .game p { font-size: 12.5px; }
+    form { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 400px) { .bar .btn { padding: 0 14px; } .logo { font-size: 18px; } .result p { display: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .btn, .game { transition: none; }
+    .result.pop { animation: none; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap bar">
+    <a href="#top" class="logo" aria-label="Double Six home">
+      <svg viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="6" width="17" height="17" rx="4" fill="#d6423a" transform="rotate(-12 10 14)"/><rect x="11" y="9" width="17" height="17" rx="4" fill="#1f1a14"/><g fill="#f5eee1"><circle cx="15.5" cy="13.5" r="1.6"/><circle cx="23.5" cy="13.5" r="1.6"/><circle cx="15.5" cy="17.5" r="1.6"/><circle cx="23.5" cy="17.5" r="1.6"/><circle cx="15.5" cy="21.5" r="1.6"/><circle cx="23.5" cy="21.5" r="1.6"/></g></svg>
+      Double Six
+    </a>
+    <div class="links"><a href="#games">Games</a><a href="#menu">Menu</a><a href="#book">Book a table</a></div>
+    <a href="#book" class="btn red">Book a table</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div class="copy">
+      <span class="tag"><i></i> Open today &middot; 12:00 &ndash; late</span>
+      <h1>Can&rsquo;t pick a game? <em>Let the dice decide.</em></h1>
+      <p class="sub">Double Six is a board-game caf&eacute; with 600 games, bottomless coffee and staff who&rsquo;ll teach you anything. Roll for today&rsquo;s pick and the total is your discount.</p>
+      <div class="ctas">
+        <button class="btn red" id="roll" type="button"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3.5"/><circle cx="7" cy="7" r=".6" fill="currentColor"/><circle cx="13" cy="13" r=".6" fill="currentColor"/><circle cx="10" cy="10" r=".6" fill="currentColor"/></svg>Roll the dice</button>
+        <a href="#games" class="btn">Browse 600 games</a>
+      </div>
+      <div class="facts"><span><b>&euro;6</b> table fee, play all day</span><span><b>4.9&#9733;</b> from 2,100 reviews</span></div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="table" id="table" role="button" tabindex="-1" aria-label="Tap the table to roll">
+        <div class="props" aria-hidden="true">
+          <svg style="left:6%;top:9%;width:15%;transform:rotate(-14deg)" viewBox="0 0 60 84"><rect x="1" y="1" width="58" height="82" rx="6" fill="#fffaf1" stroke="#1f1a14" stroke-width="2"/><rect x="7" y="7" width="46" height="70" rx="3" fill="#e9b23b"/><path d="M30 20l7 13h-14zM30 64l-7-13h14z" fill="#d6423a"/><circle cx="30" cy="42" r="6" fill="#1f1a14"/></svg>
+          <svg style="right:7%;top:12%;width:9%" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#2a63c9" stroke="#fff" stroke-width="3" stroke-dasharray="6 5"/><circle cx="20" cy="20" r="9" fill="#fff" opacity=".9"/></svg>
+          <svg style="right:15%;top:22%;width:9%" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#e9b23b" stroke="#fff" stroke-width="3" stroke-dasharray="6 5"/><circle cx="20" cy="20" r="9" fill="#fff" opacity=".9"/></svg>
+          <svg style="left:10%;bottom:12%;width:8%" viewBox="0 0 40 44"><path d="M20 2c5 0 8 4 8 8 0 3-1 5-3 6l12 6c2 1 2 4 0 5l-8 2 5 12H6l5-12-8-2c-2-1-2-4 0-5l12-6c-2-1-3-3-3-6 0-4 3-8 8-8z" fill="#d6423a"/></svg>
+          <svg style="right:9%;bottom:10%;width:7%;transform:rotate(18deg)" viewBox="0 0 40 44"><path d="M20 2c5 0 8 4 8 8 0 3-1 5-3 6l12 6c2 1 2 4 0 5l-8 2 5 12H6l5-12-8-2c-2-1-2-4 0-5l12-6c-2-1-3-3-3-6 0-4 3-8 8-8z" fill="#f5eee1"/></svg>
+        </div>
+        <div class="shadow" id="sa"></div><div class="shadow" id="sb"></div>
+        <div class="die a" id="da"></div><div class="die b" id="db"></div>
+      </div>
+      <div class="result" id="result" aria-live="polite">
+        <div class="total" id="total">11</div>
+        <div><small id="rLabel">Last roll &middot; 5 + 6</small><strong id="rGame">Pandemic</strong><p id="rMeta">2&ndash;4 players &middot; 45 min &middot; co-op</p></div>
+        <div class="code"><small>Your code</small><b id="rCode">&minus;11%</b></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="games">
+  <div class="wrap">
+    <p class="kicker">Games library</p>
+    <h2>Eleven house favourites. One for every roll.</h2>
+    <p class="lead">Each total from 2 to 12 maps to a staff pick. Roll above and the matching box lights up here, ready on the shelf.</p>
+    <div class="games" id="library"></div>
+    <p class="more">&hellip;plus 590 more on the shelves, from two-minute fillers to all-night legacy campaigns.</p>
+  </div>
+</section>
+
+<section id="menu" style="padding-top:0">
+  <div class="wrap">
+    <p class="kicker">Menu</p>
+    <h2>Fuel for a long campaign.</h2>
+    <div class="menu">
+      <div class="col">
+        <h3>Coffee &amp; tea</h3>
+        <div class="item"><span>Flat white<small>Single-origin, roasted in town</small></span><b>&euro;3.6</b></div>
+        <div class="item"><span>Critical hit cold brew<small>18-hour steep, on tap</small></span><b>&euro;4.2</b></div>
+        <div class="item"><span>Chai latte<small>House spice blend, oat by default</small></span><b>&euro;4.0</b></div>
+        <div class="item"><span>Pot of sencha</span><b>&euro;3.8</b></div>
+      </div>
+      <div class="col">
+        <h3>Snacks &amp; boards</h3>
+        <div class="item"><span>Meeple fries<small>Rosemary salt, aioli</small></span><b>&euro;5.5</b></div>
+        <div class="item"><span>Grilled cheese<small>Sourdough, three cheeses, pickles</small></span><b>&euro;8.9</b></div>
+        <div class="item"><span>Share board<small>Hummus, flatbread, olives, crudit&eacute;s</small></span><b>&euro;14</b></div>
+        <div class="item"><span>Brownie stack<small>No crumbs on the cards, promise</small></span><b>&euro;4.5</b></div>
+      </div>
+      <div class="col dark">
+        <h3>House rules</h3>
+        <div class="item"><span>Table fee<small>Per person, unlimited play</small></span><b>&euro;6</b></div>
+        <div class="item"><span>Game guru<small>We teach any game at your table</small></span><b>free</b></div>
+        <div class="item"><span>Happy hour<small>Mon&ndash;Thu 16:00&ndash;18:00</small></span><b>&minus;20%</b></div>
+        <div class="item"><span>Birthday roll<small>Doubles on your birthday: cake&rsquo;s on us</small></span><b>&#9733;</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="book" style="padding-top:0">
+  <div class="wrap book">
+    <div>
+      <p class="kicker">Book a table</p>
+      <h2>Save your seat at the table.</h2>
+      <p class="lead">Walk-ins welcome, but Friday and Saturday nights fill fast. Tables hold up to eight; bigger groups, give us a shout.</p>
+      <ul class="perks">
+        <li>Your rolled game is set out and ready when you arrive.</li>
+        <li>Your dice discount comes off the table fee automatically.</li>
+        <li>Free cancellation up to two hours before.</li>
+      </ul>
+    </div>
+    <form id="form">
+      <label>Name<input name="name" required autocomplete="name" placeholder="Sam Rivera"></label>
+      <label>Party size<select name="size"><option>2 players</option><option selected>4 players</option><option>6 players</option><option>8 players</option></select></label>
+      <label>Date<input name="date" type="date" required></label>
+      <label>Time<select name="time"><option>12:00</option><option>15:00</option><option selected>18:30</option><option>20:30</option></select></label>
+      <label>Game<select name="game" id="fGame"></select></label>
+      <label>Dice code<input name="code" id="fCode" readonly></label>
+      <button class="btn red" type="submit">Reserve table</button>
+      <p class="note" id="note" role="status"></p>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>&copy; 2026 Double Six Caf&eacute; &middot; 14 Tabletop Lane &middot; Open daily from noon</span>
+    <div><a href="#games">Games</a><a href="#menu">Menu</a><a href="#book">Bookings</a><a href="#top">Back to top</a></div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const CONFIG = {
+    gravity: 3400,       // px/s² for an 80px die (scales with die size)
+    bounce: .38,         // restitution off the felt (0 = dead, 1 = superball)
+    wallBounce: .55,     // restitution off the table rim
+    friction: 3.4,       // rolling friction while touching the felt
+    spin: 24,            // initial tumble speed, rad/s
+    settle: 90,          // torque that tips a die onto its nearest flat face
+    maxTime: 3.2,        // force a settle after this many seconds
+    introRoll: true,     // throw once when the page first appears
+  };
+  // Dice total → staff pick. The total is also the discount percentage.
+  const GAMES = {
+    2:  { name: 'Hanabi',            meta: '2–5 players · 25 min · co-op', about: 'Build a firework show with cards you can’t see.',     color: '#2a63c9', motif: 'stars' },
+    3:  { name: 'Patchwork',         meta: '2 players · 30 min · puzzle', about: 'Quilt-making duel of buttons and tetrominoes.',      color: '#e9b23b', motif: 'tiles' },
+    4:  { name: 'Azul',              meta: '2–4 players · 40 min · abstract', about: 'Draft gorgeous tiles for a palace wall.',  color: '#1c8bb3', motif: 'tiles' },
+    5:  { name: 'Splendor',          meta: '2–4 players · 30 min · engine', about: 'Gem-trading race to win the nobles.',    color: '#7a3db8', motif: 'gems' },
+    6:  { name: 'Wingspan',          meta: '1–5 players · 60 min · engine', about: 'Attract birds to your wildlife reserve.',    color: '#3d9a6a', motif: 'hills' },
+    7:  { name: 'Catan',             meta: '3–4 players · 75 min · trading', about: 'Trade, build and block the robber.',   color: '#d6423a', motif: 'hex' },
+    8:  { name: 'Ticket to Ride',    meta: '2–5 players · 60 min · routes', about: 'Claim rail routes across the map.',    color: '#c7542b', motif: 'routes' },
+    9:  { name: 'Carcassonne',       meta: '2–5 players · 40 min · tiles', about: 'Lay tiles, place meeples, grab cities.',     color: '#5a7d2c', motif: 'hills' },
+    10: { name: 'Dixit',             meta: '3–8 players · 30 min · party', about: 'Dreamy pictures, sneaky storytelling.',     color: '#d1508d', motif: 'stars' },
+    11: { name: 'Pandemic',          meta: '2–4 players · 45 min · co-op', about: 'Team up to cure four global outbreaks.',     color: '#18766d', motif: 'routes' },
+    12: { name: 'Terraforming Mars', meta: '1–5 players · 2 h · strategy', about: 'Turn the red planet blue, corp by corp.',     color: '#b4472a', motif: 'hex' },
+  };
+
+  const $ = (s) => document.querySelector(s);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const table = $('#table');
+
+  /* ---------- tiny quaternion / vector kit ---------- */
+  const qmul = (a, b) => [a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3], a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2], a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1], a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]];
+  const qnorm = (q) => { const l = Math.hypot(...q) || 1; return q.map((v) => v / l); };
+  const qaxis = (ax, ang) => [Math.cos(ang / 2), ...ax.map((v) => v * Math.sin(ang / 2))];
+  const qmat = ([w, x, y, z]) => [
+    [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+    [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+    [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  function qfromTo(u, v) {                       // shortest rotation taking unit u onto unit v
+    const d = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    if (d < -.9999) return [0, 1, 0, 0];
+    return qnorm([1 + d, ...cross(u, v)]);
+  }
+  function slerp(a, b, t) {
+    let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+    if (d < 0) { b = b.map((v) => -v); d = -d; }
+    if (d > .9995) return qnorm(a.map((v, i) => v + (b[i] - v) * t));
+    const th = Math.acos(d), s = Math.sin(th);
+    return a.map((v, i) => (v * Math.sin((1 - t) * th) + b[i] * Math.sin(t * th)) / s);
+  }
+
+  /* ---------- build the dice ---------- */
+  // Body axes → face value (opposites sum to 7). The table's "up" is +z.
+  const FACES = [
+    { v: 1, n: [0, 0, 1],  css: 'translateZ(var(--h))' },
+    { v: 6, n: [0, 0, -1], css: 'rotateY(180deg) translateZ(var(--h))' },
+    { v: 3, n: [1, 0, 0],  css: 'rotateY(90deg) translateZ(var(--h))' },
+    { v: 4, n: [-1, 0, 0], css: 'rotateY(-90deg) translateZ(var(--h))' },
+    { v: 2, n: [0, 1, 0],  css: 'rotateX(-90deg) translateZ(var(--h))' },
+    { v: 5, n: [0, -1, 0], css: 'rotateX(90deg) translateZ(var(--h))' },
+  ];
+  const PIPS = { 1: [5], 2: [3, 7], 3: [3, 5, 7], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
+  const LIGHT = [-.35, -.55, .76];               // light from the upper left, above the table
+
+  function makeDie(el, shadow) {
+    el.style.setProperty('--h', 'calc(var(--s) / 2 - .5px)');
+    ['', 'rotateX(90deg)', 'rotateY(90deg)'].forEach((t) => { const c = document.createElement('div'); c.className = 'core'; c.style.transform = t; el.appendChild(c); });
+    const faces = FACES.map((f) => {
+      const d = document.createElement('div'); d.className = 'face'; d.style.transform = f.css;
+      d.innerHTML = PIPS[f.v].map((k) => `<i style="grid-area:${Math.ceil(k / 3)}/${(k - 1) % 3 + 1}"></i>`).join('');
+      el.appendChild(d); return d;
+    });
+    return { el, shadow, faces, p: [0, 0, 0], v: [0, 0, 0], w: [0, 0, 0], q: [1, 0, 0, 0], still: 0, snap: null };
+  }
+  const dice = [makeDie($('#da'), $('#sa')), makeDie($('#db'), $('#sb'))];
+
+  // orientation with face `value` on top and a yaw of `yaw` radians
+  function restQ(value, yaw) {
+    const f = FACES.find((x) => x.v === value);
+    return qmul(qaxis([0, 0, 1], yaw), qfromTo(f.n, [0, 0, 1]));
+  }
+  function topFace(q) {
+    const R = qmat(q); let best = FACES[0], bz = -2;
+    for (const f of FACES) { const z = R[2][0] * f.n[0] + R[2][1] * f.n[1] + R[2][2] * f.n[2]; if (z > bz) { bz = z; best = f; } }
+    return best;
+  }
+
+  /* ---------- layout ---------- */
+  let S = 80, H = 40, TW = 600, TD = 380;
+  function measure() {
+    S = dice[0].el.offsetWidth || 80; H = S / 2;
+    TW = table.clientWidth; TD = table.clientHeight;
+  }
+
+  function render(d) {
+    const R = qmat(d.q), [x, y, z] = d.p;
+    d.el.style.transform = `translate3d(${x}px,${y}px,${z}px) matrix3d(${R[0][0]},${R[1][0]},${R[2][0]},0,${R[0][1]},${R[1][1]},${R[2][1]},0,${R[0][2]},${R[1][2]},${R[2][2]},0,0,0,0,1)`;
+    // shade each face by how much it faces the light
+    FACES.forEach((f, i) => {
+      const n = [0, 1, 2].map((r) => R[r][0] * f.n[0] + R[r][1] * f.n[1] + R[r][2] * f.n[2]);
+      const lit = n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2];
+      d.faces[i].style.setProperty('--sh', (Math.max(0, .3 - lit * .34)).toFixed(3));
+    });
+    const lift = Math.max(0, z - H) / S;
+    d.shadow.style.transform = `translate3d(${x + lift * S * .35}px,${y + lift * S * .25}px,1px) scale(${1.05 + lift * .35})`;
+    d.shadow.style.opacity = (1 / (1 + lift * 1.6)).toFixed(3);
+  }
+
+  /* ---------- physics ---------- */
+  function step(d, dt) {
+    const g = CONFIG.gravity * S / 80;
+    d.v[2] -= g * dt;
+    for (let k = 0; k < 3; k++) d.p[k] += d.v[k] * dt;
+    d.q = qnorm(d.q.map((v, i) => v + .5 * dt * qmul([0, ...d.w], d.q)[i]));
+    const R = qmat(d.q);
+    const support = H * (Math.abs(R[2][0]) + Math.abs(R[2][1]) + Math.abs(R[2][2]));   // lowest corner
+    let contact = false;
+    if (d.p[2] <= support) {
+      d.p[2] = support; contact = true;
+      if (d.v[2] < -S * 1.2) {                        // a real bounce: lose energy, scuff the spin
+        d.v[2] *= -CONFIG.bounce; d.v[0] *= .8; d.v[1] *= .8;
+        d.w = d.w.map((v) => v * .7 + (Math.random() - .5) * 6);
+      } else d.v[2] = 0;
+    }
+    if (contact) {
+      const f = Math.max(0, 1 - CONFIG.friction * dt);
+      d.v[0] *= f; d.v[1] *= f;
+      const roll = [-d.v[1] / H, d.v[0] / H, d.w[2] * .9];   // spin matching the slide = rolling
+      const k = Math.min(1, 7 * dt);
+      d.w = d.w.map((v, i) => v + (roll[i] - v) * k);
+      // gravity tips the cube toward whichever face is closest to flat
+      const top = topFace(d.q), a = [0, 1, 2].map((r) => R[r][0] * top.n[0] + R[r][1] * top.n[1] + R[r][2] * top.n[2]);
+      const t = cross(a, [0, 0, 1]);
+      for (let i = 0; i < 3; i++) d.w[i] = d.w[i] * (1 - 4 * dt) + t[i] * CONFIG.settle * dt;
+    }
+    // table rim
+    const mx = TW / 2 - S * .75, my = TD / 2 - S * .9;
+    if (Math.abs(d.p[0]) > mx) { d.p[0] = Math.sign(d.p[0]) * mx; d.v[0] *= -CONFIG.wallBounce; d.w[1] *= -.6; }
+    if (Math.abs(d.p[1]) > my) { d.p[1] = Math.sign(d.p[1]) * my; d.v[1] *= -CONFIG.wallBounce; d.w[0] *= -.6; }
+    const speed = Math.hypot(...d.v) / S, spin = Math.hypot(...d.w);
+    d.still = contact && speed < .15 && spin < .9 ? d.still + dt : 0;
+  }
+  function collide(a, b) {
+    const dx = b.p[0] - a.p[0], dy = b.p[1] - a.p[1], dist = Math.hypot(dx, dy) || 1, min = S * 1.15;
+    if (dist >= min || Math.abs(a.p[2] - b.p[2]) > S) return;
+    const nx = dx / dist, ny = dy / dist, push = (min - dist) / 2;
+    a.p[0] -= nx * push; a.p[1] -= ny * push; b.p[0] += nx * push; b.p[1] += ny * push;
+    const j = (a.v[0] - b.v[0]) * nx + (a.v[1] - b.v[1]) * ny;
+    if (j > 0) { a.v[0] -= nx * j * .9; a.v[1] -= ny * j * .9; b.v[0] += nx * j * .9; b.v[1] += ny * j * .9; }
+  }
+
+  /* ---------- roll ---------- */
+  let rolling = false, rollT = 0, raf = 0, last = 0, visible = true, pending = false;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  function randomAxis() { const v = [rand(-1, 1), rand(-1, 1), rand(-1, 1)], l = Math.hypot(...v) || 1; return v.map((x) => x / l); }
+
+  function roll() {
+    if (rolling) return;
+    measure();
+    if (reduced.matches) {                          // no tumbling: just show two fresh faces
+      const vals = [1 + (Math.random() * 6 | 0), 1 + (Math.random() * 6 | 0)];
+      dice.forEach((d, i) => { d.q = restQ(vals[i], rand(-.5, .5)); d.p = [(i ? 1 : -1) * S * .85, rand(-.2, .2) * S, H]; render(d); });
+      return finish();
+    }
+    const k = TW / 640, side = Math.random() < .5 ? -1 : 1;
+    dice.forEach((d, i) => {
+      d.p = [side * TW * .42, TD * (i ? .22 : -.12), S * rand(2.2, 3)];
+      d.v = [-side * rand(650, 1050) * k, (i ? -1 : 1) * rand(0, 220) * k - 60 * k, rand(200, 500) * k];
+      const ax = randomAxis(); d.w = ax.map((v) => v * CONFIG.spin * rand(.8, 1.2));
+      d.q = qnorm([rand(-1, 1), rand(-1, 1), rand(-1, 1), rand(-1, 1)]);
+      d.still = 0; d.snap = null;
+    });
+    rolling = true; rollT = 0;
+    $('#roll').disabled = true;
+    $('#rLabel').textContent = 'Rolling…';
+    kick();
+  }
+
+  function frame(now) {
+    const raw = Math.max(0, now - last) / 1000, dt = Math.min(raw, .05); last = now;
+    rollT += raw;                                   // wall-clock, so slow devices still settle on time
+    const n = 6, h = dt / n;
+    for (let s = 0; s < n; s++) {
+      dice.forEach((d) => { if (!d.snap) step(d, h); });
+      collide(dice[0], dice[1]);
+    }
+    dice.forEach((d) => {
+      // once still (or out of time), ease the last few degrees so the top face sits perfectly flat
+      if (!d.snap && (d.still > .12 || rollT > CONFIG.maxTime)) {
+        const top = topFace(d.q), R = qmat(d.q), a = [0, 1, 2].map((r) => R[r][0] * top.n[0] + R[r][1] * top.n[1] + R[r][2] * top.n[2]);
+        d.snap = { from: d.q, to: qmul(qfromTo(a, [0, 0, 1]), d.q), z: d.p[2], t: 0 };
+      }
+      if (d.snap) {
+        const s = d.snap; s.t = Math.min(1, s.t + dt / .25);
+        const e = 1 - Math.pow(1 - s.t, 3);
+        d.q = slerp(s.from, s.to, e); d.p[2] = s.z + (H - s.z) * e;
+      }
+      render(d);
+    });
+    if (dice.every((d) => d.snap && d.snap.t >= 1)) { rolling = false; finish(); return; }
+    raf = requestAnimationFrame(frame);
+  }
+  function kick() {
+    cancelAnimationFrame(raf); raf = 0;
+    if (rolling && visible && !document.hidden) { last = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+
+  /* ---------- result → game pick + discount ---------- */
+  const library = $('#library'), fGame = $('#fGame');
+  function finish() {
+    $('#roll').disabled = false;
+    const [a, b] = dice.map((d) => topFace(d.q).v), sum = a + b, g = GAMES[sum], dbl = a === b;
+    const off = dbl ? 25 : sum;
+    $('#total').textContent = sum;
+    $('#rLabel').textContent = dbl ? `Doubles! ${a} + ${b}` : `You rolled ${a} + ${b}`;
+    $('#rGame').textContent = `Today’s pick: ${g.name}`;
+    $('#rMeta').textContent = g.meta;
+    $('#rCode').textContent = `−${off}%`;
+    const r = $('#result'); r.classList.remove('pop'); void r.offsetWidth; r.classList.add('pop');
+    library.querySelectorAll('.game').forEach((el) => el.classList.toggle('picked', +el.dataset.sum === sum));
+    fGame.value = g.name; $('#fCode').value = `ROLL${sum}${dbl ? 'X2' : ''} · −${off}%`;
+  }
+
+  /* ---------- library covers (inline SVG) ---------- */
+  const MOTIF = {
+    stars: () => [...Array(7)].map((_, i) => `<path transform="translate(${20 + (i * 37) % 140} ${18 + (i * 23) % 64}) scale(${.6 + (i % 3) * .3})" d="M0-10l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="#fff" opacity="${.5 + (i % 2) * .4}"/>`).join(''),
+    tiles: () => [...Array(12)].map((_, i) => `<rect x="${22 + (i % 6) * 24}" y="${22 + (i / 6 | 0) * 28}" width="20" height="20" rx="4" fill="#fff" opacity="${.3 + (i * 7 % 5) * .15}" transform="rotate(${(i % 3 - 1) * 6} ${32 + (i % 6) * 24} ${32 + (i / 6 | 0) * 28})"/>`).join(''),
+    gems: () => [[50, 50], [100, 36], [140, 60]].map(([x, y]) => `<path transform="translate(${x} ${y})" d="M-16-6l8-10h16l8 10-16 22z" fill="#fff" opacity=".85"/><path transform="translate(${x} ${y})" d="M-16-6h32L0 16z" fill="#000" opacity=".15"/>`).join(''),
+    hills: () => `<path d="M0 80q40-46 80-20t120-30v70H0z" fill="#fff" opacity=".35"/><path d="M0 100q60-40 110-14t90-16v30H0z" fill="#fff" opacity=".6"/><circle cx="150" cy="28" r="12" fill="#fff"/>`,
+    hex: () => [...Array(7)].map((_, i) => { const a = i * Math.PI / 3, r = i ? 30 : 0, x = 100 + Math.cos(a) * r, y = 62 + Math.sin(a) * r; return `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)})" d="M0-17l15 8.5v17L0 17l-15-8.5v-17z" fill="#fff" opacity="${.35 + (i % 3) * .22}"/>`; }).join(''),
+    routes: () => `<path d="M20 90C60 30 90 100 130 40s40-10 50-20" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="12 7" opacity=".85"/>${[[20, 90], [130, 40], [180, 20], [70, 62]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="8" fill="#fff"/>`).join('')}`,
+  };
+  Object.entries(GAMES).forEach(([sum, g]) => {
+    const [players, time] = g.meta.split(' · ');
+    const el = document.createElement('article'); el.className = 'game'; el.dataset.sum = sum;
+    el.innerHTML = `<svg class="cover" viewBox="0 0 200 125" aria-hidden="true"><rect width="200" height="125" fill="${g.color}"/><rect width="200" height="125" fill="url(#shine)"/>${MOTIF[g.motif]()}</svg>
+      <div><h3>${g.name}<span>roll ${sum}</span></h3><p>${g.about}</p><div class="chips"><em>${players}</em><em>${time}</em></div></div>`;
+    library.appendChild(el);
+    fGame.add(new Option(g.name));
+  });
+  library.insertAdjacentHTML('beforeend', '<article class="game again"><strong>Not feeling it?</strong><p>Every roll is a new pick and a new discount.</p><a href="#top" class="btn red" id="again">Roll again</a></article>');
+  $('#again').addEventListener('click', () => setTimeout(roll, reduced.matches ? 0 : 500));
+  document.body.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="shine" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".18"/></linearGradient></defs></svg>');
+
+  /* ---------- wiring ---------- */
+  $('#roll').addEventListener('click', roll);
+  table.addEventListener('click', roll);
+  if ('IntersectionObserver' in window) new IntersectionObserver(([e]) => {
+    visible = e.isIntersecting; kick();
+    if (visible && pending) { pending = false; setTimeout(roll, 400); }
+  }).observe(table);
+  document.addEventListener('visibilitychange', kick);
+  addEventListener('resize', () => { const old = S; measure(); if (!rolling && old) dice.forEach((d) => { d.p = d.p.map((v) => v * S / old); render(d); }); });
+
+  const form = $('#form');
+  form.date.valueAsDate = new Date();
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    $('#note').textContent = `Booked! ${form.size.value} on ${form.date.value} at ${form.time.value}. ${form.game.value} will be waiting${form.code.value ? ' — code ' + form.code.value.split(' ')[0] + ' applied' : ''}.`;
+  });
+
+  // initial pose: a 5 and a 6 resting on the felt, slightly askew
+  measure();
+  dice[0].q = restQ(5, -.35); dice[0].p = [-S * .8, S * .05, H];
+  dice[1].q = restQ(6, .42); dice[1].p = [S * .85, S * .35, H];
+  dice.forEach(render);
+  finish();
+  if (CONFIG.introRoll && !reduced.matches) pending = true;
+})();
+</script>
+</body>
+</html>

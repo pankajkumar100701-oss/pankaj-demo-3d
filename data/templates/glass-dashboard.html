@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumetric — Glass Dashboard</title>
+<style>
+  /* Customise: colours live in :root below (--a / --b / --c drive every chart).
+     Chart data lives in the SERIES, SEGMENTS and ROWS arrays in the script.
+     Each floating panel's depth is its --z value; --dx/--dy/--dz set where it
+     flies in from on load (the "exploded" view). */
+  :root {
+    --bg: #06070f;
+    --fg: #eef0fb;
+    --muted: rgb(238 240 251 / 0.6);
+    --line: rgb(255 255 255 / 0.1);
+    --glass: rgb(22 25 46 / 0.55);
+    --glass-hi: rgb(255 255 255 / 0.07);
+    --a: #8b7bff;
+    --b: #3ee6c9;
+    --c: #ff8fb1;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    overflow-x: hidden;
+    background:
+      radial-gradient(50% 45% at 78% 28%, rgb(139 123 255 / 0.22), transparent 70%),
+      radial-gradient(40% 40% at 60% 75%, rgb(62 230 201 / 0.12), transparent 70%),
+      var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1240px; margin: auto; padding: 0 clamp(16px, 5vw, 56px); }
+
+  /* Nav */
+  nav { display: flex; align-items: center; justify-content: space-between; height: 76px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+  .logo svg { width: 26px; height: 26px; }
+  nav ul { display: flex; gap: 30px; list-style: none; font-size: 14px; color: var(--muted); }
+  nav ul a:hover { color: var(--fg); }
+  .nav-cta { padding: 9px 16px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; background: var(--glass-hi); }
+
+  /* Hero */
+  .hero { position: relative; overflow: clip; }
+  .hero-grid { display: grid; grid-template-columns: 0.82fr 1.18fr; align-items: center; gap: 24px; min-height: min(calc(100vh - 76px), 860px); padding-bottom: 48px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass-hi); font-size: 13px; color: var(--muted); }
+  .eyebrow b { width: 6px; height: 6px; border-radius: 50%; background: var(--b); box-shadow: 0 0 10px var(--b); }
+  h1 { margin-top: 22px; font-size: clamp(40px, 5.4vw, 76px); line-height: 0.98; letter-spacing: -0.045em; font-weight: 700; }
+  h1 em { font-style: normal; background: linear-gradient(95deg, var(--a), var(--b) 60%, var(--c)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { max-width: 440px; margin-top: 22px; font-size: 18px; line-height: 1.6; color: var(--muted); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .btn { padding: 14px 22px; border-radius: 999px; font-size: 15px; font-weight: 600; transition: transform .25s, box-shadow .25s, background .25s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn.primary { background: var(--fg); color: var(--bg); }
+  .btn.primary:hover { box-shadow: 0 16px 34px -12px var(--a); }
+  .btn.ghost { border: 1px solid var(--line); }
+  .btn.ghost:hover { background: var(--glass-hi); }
+  .trust { display: flex; gap: 28px; margin-top: 44px; font-size: 13px; color: var(--muted); }
+  .trust b { display: block; color: var(--fg); font-size: 24px; letter-spacing: -0.03em; }
+
+  /* 3D dashboard. .fit scales a fixed 960×600 design to the column. */
+  .fit { position: relative; height: calc(600px * var(--s, 0.7)); }
+  .scene { position: absolute; left: 0; top: 0; width: 960px; height: 600px; transform: scale(var(--s, 0.7)); transform-origin: 0 0; perspective: 1700px; touch-action: pan-y; }
+  .stage {
+    position: absolute; inset: 0;
+    transform-style: preserve-3d;
+    transform: rotateX(var(--rx, 16deg)) rotateY(var(--ry, -20deg)) rotateZ(2deg);
+  }
+  .p {
+    position: absolute;
+    border: 1px solid rgb(255 255 255 / 0.13);
+    border-radius: 16px;
+    background: linear-gradient(155deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02) 60%), var(--glass);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 40px 70px -30px rgb(0 0 0 / 0.8), inset 0 1px 0 rgb(255 255 255 / 0.12);
+    padding: 16px;
+    font-size: 12px;
+    opacity: 0;
+    transform: translate3d(var(--dx, 0), var(--dy, 0), calc(var(--z, 0px) + var(--dz, 300px))) rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
+    transition: transform 1.5s cubic-bezier(.16, 1, .3, 1), opacity .9s ease;
+    transition-delay: var(--d, 0s);
+  }
+  .on .p { opacity: 1; transform: translate3d(0, 0, var(--z, 0px)); }
+  .p h4 { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .frame { inset: 0; padding: 0; background: linear-gradient(160deg, rgb(255 255 255 / 0.06), transparent 50%), rgb(12 14 28 / 0.78); }
+  .side { position: absolute; left: 0; top: 0; bottom: 0; width: 170px; padding: 20px 16px; border-right: 1px solid var(--line); }
+  .side .logo { font-size: 14px; margin-bottom: 26px; }
+  .side .logo svg { width: 20px; height: 20px; }
+  .side i { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; margin-bottom: 4px; border-radius: 9px; font-style: normal; color: var(--muted); }
+  .side i::before { content: ""; width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid currentColor; opacity: .7; }
+  .side i.cur { background: rgb(139 123 255 / 0.18); color: var(--fg); }
+  .top { position: absolute; left: 190px; right: 22px; top: 18px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); }
+  .top strong { color: var(--fg); font-size: 16px; letter-spacing: -0.01em; }
+  .top span { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .kpi b { display: block; margin-top: 8px; font-size: 26px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .kpi small { color: var(--b); font-weight: 600; }
+  .kpi small.dn { color: var(--c); }
+  .kpi::after { content: ""; position: absolute; right: 14px; top: 16px; width: 8px; height: 8px; border-radius: 50%; background: var(--k, var(--a)); box-shadow: 0 0 12px var(--k, var(--a)); }
+  .legend { display: flex; gap: 14px; margin-top: 6px; color: var(--muted); }
+  .legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--k); }
+  svg.chart { display: block; width: 100%; margin-top: 8px; overflow: visible; }
+  .draw { stroke-dasharray: 1400; stroke-dashoffset: 1400; transition: stroke-dashoffset 2.2s .9s cubic-bezier(.3, .7, .2, 1); }
+  .on .draw { stroke-dashoffset: 0; }
+  .donut-wrap { position: relative; display: grid; place-items: center; margin-top: 10px; }
+  .donut-wrap p { position: absolute; text-align: center; color: var(--muted); }
+  .donut-wrap p b { display: block; font-size: 24px; color: var(--fg); letter-spacing: -0.03em; }
+  .seg-list { margin-top: 8px; display: grid; gap: 5px; color: var(--muted); }
+  .seg-list div { display: flex; justify-content: space-between; }
+  .seg-list div span::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--k); }
+  table { width: 100%; margin-top: 8px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 6px 0; border-bottom: 1px solid rgb(255 255 255 / 0.05); }
+  td svg { width: 70px; height: 18px; vertical-align: middle; }
+  .toast { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, rgb(139 123 255 / 0.55), rgb(62 230 201 / 0.35)); white-space: nowrap; }
+  .toast i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: rgb(255 255 255 / 0.2); font-style: normal; font-weight: 700; }
+  .toast small { display: block; opacity: .75; }
+  .live b { display: block; font-size: 28px; letter-spacing: -0.03em; margin-top: 4px; }
+  .live h4::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--b); box-shadow: 0 0 10px var(--b); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .glow { position: absolute; left: 10%; right: 0; top: 30%; height: 60%; background: radial-gradient(closest-side, rgb(139 123 255 / 0.35), transparent); filter: blur(30px); pointer-events: none; }
+
+  /* Sections */
+  section { padding: clamp(64px, 10vw, 120px) 0; }
+  .logos { padding: 28px 0; border-block: 1px solid var(--line); }
+  .logos .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 32px; color: rgb(238 240 251 / 0.4); font-weight: 700; letter-spacing: -0.02em; font-size: 19px; }
+  .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--b); }
+  h2 { margin-top: 14px; max-width: 640px; font-size: clamp(30px, 4vw, 50px); line-height: 1.04; letter-spacing: -0.035em; }
+  .sub { max-width: 560px; margin-top: 16px; color: var(--muted); line-height: 1.6; font-size: 17px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 48px; }
+  .card { position: relative; padding: 28px; border: 1px solid var(--line); border-radius: 20px; background: linear-gradient(160deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.01)); overflow: hidden; transition: transform .35s, border-color .35s; }
+  .card:hover { transform: translateY(-4px); border-color: rgb(139 123 255 / 0.4); }
+  .card .ic { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: rgb(139 123 255 / 0.16); color: var(--a); }
+  .card h3 { margin-top: 22px; font-size: 20px; letter-spacing: -0.02em; }
+  .card p { margin-top: 10px; color: var(--muted); line-height: 1.6; font-size: 15px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 48px; counter-reset: s; }
+  .steps div { padding-top: 22px; border-top: 1px solid var(--line); }
+  .steps div::before { counter-increment: s; content: "0" counter(s); font-family: var(--mono); font-size: 13px; color: var(--a); }
+  .steps h3 { margin-top: 14px; font-size: 19px; letter-spacing: -0.02em; }
+  .steps p { margin-top: 8px; color: var(--muted); line-height: 1.6; font-size: 15px; }
+  blockquote { max-width: 860px; font-size: clamp(22px, 3vw, 34px); line-height: 1.3; letter-spacing: -0.025em; }
+  .who { display: flex; align-items: center; gap: 12px; margin-top: 26px; color: var(--muted); font-size: 14px; }
+  .who i { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--c), var(--a)); }
+  .who b { display: block; color: var(--fg); }
+  .cta { text-align: center; padding: clamp(48px, 8vw, 88px) 24px; border: 1px solid var(--line); border-radius: 28px; background: radial-gradient(70% 90% at 50% 0%, rgb(139 123 255 / 0.3), transparent), rgb(255 255 255 / 0.02); }
+  .cta h2, .cta .sub { margin-inline: auto; }
+  .cta .ctas { justify-content: center; }
+  footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; }
+  footer ul { display: flex; gap: 22px; list-style: none; }
+
+  @media (max-width: 960px) {
+    .hero-grid { grid-template-columns: 1fr; min-height: 0; padding-top: 24px; gap: 40px; }
+    .grid3, .steps { grid-template-columns: 1fr; }
+    nav ul { display: none; }
+    .scene { left: calc(64px * var(--s)); }
+  }
+  @media (max-width: 480px) {
+    .trust { gap: 18px; }
+    .trust b { font-size: 20px; }
+    .lead { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <nav class="wrap">
+    <a class="logo" href="#"><svg viewBox="0 0 26 26" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#3ee6c9"/></linearGradient></defs><rect x="1" y="1" width="24" height="24" rx="7" fill="url(#lg)"/><path d="M7 17l4-5 3 3 5-7" stroke="#06070f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Lumetric</a>
+    <ul><li><a href="#product">Product</a></li><li><a href="#how">How it works</a></li><li><a href="#customers">Customers</a></li><li><a href="#start">Pricing</a></li></ul>
+    <a class="nav-cta" href="#start">Start free</a>
+  </nav>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><b></b>New: anomaly alerts in real time</span>
+      <h1>Every metric, <em>one clear view.</em></h1>
+      <p class="lead">Lumetric pulls product, revenue and marketing data into a single live dashboard — and tells you what changed before your Monday standup does.</p>
+      <div class="ctas"><a class="btn primary" href="#start">Start 14-day trial</a><a class="btn ghost" href="#product">Take the tour</a></div>
+      <div class="trust"><div><b>4,200+</b>teams</div><div><b>38B</b>events / month</div><div><b>&lt;2s</b>query time</div></div>
+    </div>
+
+    <div class="fit" id="fit" aria-label="Lumetric dashboard preview">
+      <div class="glow"></div>
+      <div class="scene" id="scene">
+        <div class="stage" id="stage">
+          <div class="p frame" style="--z:0px;--dz:-200px;--d:0s">
+            <div class="side">
+              <div class="logo"><svg viewBox="0 0 26 26"><rect x="1" y="1" width="24" height="24" rx="7" fill="url(#lg)"/></svg>Lumetric</div>
+              <i class="cur">Overview</i><i>Revenue</i><i>Funnels</i><i>Cohorts</i><i>Campaigns</i><i>Alerts</i><i>Settings</i>
+            </div>
+            <div class="top"><strong>Overview · Q3</strong><span>Last 30 days ▾</span></div>
+          </div>
+
+          <div class="p kpi" style="left:190px;top:66px;width:176px;height:96px;--z:70px;--dx:-160px;--dy:-120px;--d:.15s"><h4>Revenue</h4><b data-count="482910" data-pre="$">$482,910</b><small>▲ 18.4%</small></div>
+          <div class="p kpi" style="left:378px;top:66px;width:176px;height:96px;--z:110px;--dy:-200px;--d:.22s;--k:var(--b)"><h4>Active users</h4><b data-count="91204">91,204</b><small>▲ 6.1%</small></div>
+          <div class="p kpi" style="left:566px;top:66px;width:176px;height:96px;--z:85px;--dx:80px;--dy:-180px;--d:.29s;--k:var(--c)"><h4>Churn</h4><b>2.3%</b><small class="dn">▼ 0.4 pts</small></div>
+          <div class="p kpi" style="left:754px;top:66px;width:184px;height:96px;--z:60px;--dx:200px;--dy:-120px;--d:.36s"><h4>Avg. order</h4><b data-count="128" data-pre="$">$128</b><small>▲ 3.2%</small></div>
+
+          <div class="p" style="left:190px;top:176px;width:500px;height:246px;--z:40px;--dx:-220px;--dz:420px;--d:.42s">
+            <h4>Revenue vs. forecast</h4>
+            <div class="legend"><span style="--k:var(--a)">Actual</span><span style="--k:var(--b)">Forecast</span></div>
+            <svg class="chart" id="area" viewBox="0 0 468 170" height="170"></svg>
+          </div>
+          <div class="p" style="left:702px;top:176px;width:236px;height:246px;--z:95px;--dx:240px;--dz:460px;--d:.5s">
+            <h4>Traffic sources</h4>
+            <div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" width="112" height="112"></svg><p><b>64%</b>organic</p></div>
+            <div class="seg-list" id="segs"></div>
+          </div>
+          <div class="p" style="left:190px;top:434px;width:748px;height:148px;--z:28px;--dy:220px;--dz:380px;--d:.58s">
+            <h4>Top channels</h4>
+            <table><thead><tr><th>Channel</th><th>Sessions</th><th>Conv.</th><th>Revenue</th><th>7-day</th></tr></thead><tbody id="rows"></tbody></table>
+          </div>
+
+          <div class="p toast" style="left:262px;top:222px;--z:180px;--dx:120px;--dy:-60px;--dz:600px;--d:.95s"><i>!</i><div><b>Checkout conversion +18%</b><small>Spike detected 4 min ago · EU</small></div></div>
+          <div class="p live" style="left:-46px;top:350px;width:196px;--z:150px;--dx:-260px;--dz:560px;--d:.8s"><h4>Active now</h4><b id="live">2,481</b><svg viewBox="0 0 160 36" width="164" height="36"><path id="liveLine" fill="none" style="stroke:var(--b)" stroke-width="2" stroke-linecap="round"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="logos"><div class="wrap"><span>Northwind</span><span>Kestrel&amp;Co</span><span>Parallel</span><span>OUTFIELD</span><span>Brightline</span><span>Atlas Labs</span></div></div>
+
+<section id="product"><div class="wrap">
+  <p class="kicker">Product</p>
+  <h2>Stop stitching spreadsheets. Start asking questions.</h2>
+  <p class="sub">Connect Stripe, your warehouse and ad accounts in minutes. Lumetric models the data for you, so every chart is ready on day one.</p>
+  <div class="grid3">
+    <div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div><h3>Live dashboards</h3><p>Sub-second queries over billions of rows. Charts refresh as events land — no nightly batch, no stale numbers.</p></div>
+    <div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div><h3>Anomaly alerts</h3><p>Lumetric learns your normal and pings Slack the moment revenue, sign-ups or latency drift outside it.</p></div>
+    <div class="card"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><h3>Ask in plain English</h3><p>“Which campaigns drove repeat buyers in August?” Get a chart, the SQL behind it, and a one-line answer.</p></div>
+  </div>
+</div></section>
+
+<section id="how" style="padding-top:0"><div class="wrap">
+  <p class="kicker">How it works</p>
+  <h2>From raw events to a board-ready story in an afternoon.</h2>
+  <div class="steps">
+    <div><h3>Connect your sources</h3><p>140+ one-click connectors, from Postgres and Snowflake to Shopify and Google Ads.</p></div>
+    <div><h3>Pick your metrics</h3><p>Start from templates for SaaS, e-commerce and marketplaces, then tweak definitions together.</p></div>
+    <div><h3>Share the view</h3><p>Send live links, schedule digests, or embed any panel inside your own product.</p></div>
+  </div>
+</div></section>
+
+<section id="customers" style="padding-top:0"><div class="wrap">
+  <blockquote>“We replaced four BI tools and a weekly metrics deck with one Lumetric board. Our leadership meeting now starts with decisions instead of debates about numbers.”</blockquote>
+  <div class="who"><i></i><div><b>Maya Okafor</b>VP Growth, Brightline</div></div>
+</div></section>
+
+<section id="start" style="padding-top:0"><div class="wrap">
+  <div class="cta">
+    <p class="kicker">Free for 14 days</p>
+    <h2>See your whole business at a glance.</h2>
+    <p class="sub">No credit card. Bring your data, keep your dashboards — plans from $49 a month after the trial.</p>
+    <div class="ctas"><a class="btn primary" href="#">Start free trial</a><a class="btn ghost" href="#">Book a demo</a></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap"><span>© 2026 Lumetric Analytics, Inc.</span><ul><li><a href="#">Privacy</a></li><li><a href="#">Security</a></li><li><a href="#">Status</a></li><li><a href="#">Careers</a></li></ul></div></footer>
+
+<script>
+(() => {
+  // ---- Data: edit these to change the charts ----
+  const SERIES = {
+    actual:   [42, 48, 45, 56, 61, 58, 70, 74, 69, 82, 88, 96],
+    forecast: [40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84]
+  };
+  const SEGMENTS = [['Organic', 64, '--a'], ['Paid', 22, '--b'], ['Referral', 14, '--c']];
+  const ROWS = [
+    ['Organic search', '41,820', '4.8%', '$212,400', [3, 4, 4, 5, 6, 6, 8]],
+    ['Paid social', '22,316', '3.1%', '$96,710', [5, 4, 5, 4, 6, 5, 6]],
+    ['Email', '14,902', '6.2%', '$118,050', [2, 3, 5, 4, 6, 7, 7]]
+  ];
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) String(attrs[k]).startsWith('var(') ? e.style.setProperty(k, attrs[k]) : e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+  const line = (vals, w, h, pad = 4) => {
+    const max = Math.max(...vals), min = Math.min(...vals);
+    return vals.map((v, i) => [(i / (vals.length - 1)) * w, pad + (1 - (v - min) / (max - min || 1)) * (h - pad * 2)]);
+  };
+  const smooth = pts => pts.reduce((d, p, i) => {
+    if (!i) return `M${p[0]},${p[1]}`;
+    const q = pts[i - 1], cx = (q[0] + p[0]) / 2;
+    return `${d} C${cx},${q[1]} ${cx},${p[1]} ${p[0]},${p[1]}`;
+  }, '');
+
+  // Area chart
+  const area = $('area'), W = 468, H = 150;
+  const defs = el('defs', {}, area);
+  const g = el('linearGradient', { id: 'fillA', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el('stop', { offset: 0, 'stop-color': 'var(--a)', 'stop-opacity': .45 }, g);
+  el('stop', { offset: 1, 'stop-color': 'var(--a)', 'stop-opacity': 0 }, g);
+  for (let i = 0; i < 4; i++) el('line', { x1: 0, x2: W, y1: 4 + i * 47, y2: 4 + i * 47, stroke: 'rgb(255 255 255 / .07)' }, area);
+  const all = [...SERIES.actual, ...SERIES.forecast], mx = Math.max(...all), mn = Math.min(...all);
+  const pts = vals => vals.map((v, i) => [(i / (vals.length - 1)) * W, 6 + (1 - (v - mn) / (mx - mn)) * (H - 12)]);
+  const A = pts(SERIES.actual), F = pts(SERIES.forecast);
+  el('path', { d: `${smooth(A)} L${W},${H} L0,${H}Z`, fill: 'url(#fillA)' }, area);
+  el('path', { d: smooth(F), fill: 'none', stroke: 'var(--b)', 'stroke-width': 2, 'stroke-dasharray': '5 6', opacity: .8 }, area);
+  el('path', { d: smooth(A), fill: 'none', stroke: 'var(--a)', 'stroke-width': 3, 'stroke-linecap': 'round', class: 'draw' }, area);
+  const last = A[A.length - 1];
+  el('circle', { cx: last[0], cy: last[1], r: 5, fill: 'var(--fg)', stroke: 'var(--a)', 'stroke-width': 3 }, area);
+  'JFMAMJJASOND'.split('').forEach((m, i) => el('text', { x: (i / 11) * W, y: H + 18, fill: 'rgb(238 240 251 / .45)', 'font-size': 10, 'text-anchor': i ? (i === 11 ? 'end' : 'middle') : 'start' }, area).textContent = m);
+
+  // Donut
+  const donut = $('donut'), R = 46, C = 2 * Math.PI * R; let off = 0;
+  el('circle', { cx: 60, cy: 60, r: R, fill: 'none', stroke: 'rgb(255 255 255 / .06)', 'stroke-width': 14 }, donut);
+  SEGMENTS.forEach(([name, pct, v]) => {
+    const len = pct / 100 * C;
+    el('circle', { cx: 60, cy: 60, r: R, fill: 'none', stroke: `var(${v})`, 'stroke-width': 14, 'stroke-dasharray': `${Math.max(len - 3, 0)} ${C}`, 'stroke-dashoffset': -off, transform: 'rotate(-90 60 60)', 'stroke-linecap': 'round' }, donut);
+    off += len;
+    $('segs').insertAdjacentHTML('beforeend', `<div><span style="--k:var(${v})">${name}</span><b>${pct}%</b></div>`);
+  });
+
+  // Table
+  ROWS.forEach(([ch, s, c, r, trend]) => {
+    const p = smooth(line(trend, 70, 18, 2));
+    $('rows').insertAdjacentHTML('beforeend', `<tr><td>${ch}</td><td>${s}</td><td>${c}</td><td>${r}</td><td><svg viewBox="0 0 70 18"><path d="${p}" fill="none" style="stroke:var(--b)" stroke-width="1.8"/></svg></td></tr>`);
+  });
+
+  // Live sparkline (ticks every 1.2s while visible)
+  const liveVals = Array.from({ length: 24 }, (_, i) => 2400 + Math.sin(i / 2) * 60 + i * 4);
+  const drawLive = () => { $('liveLine').setAttribute('d', smooth(line(liveVals, 160, 36, 3))); $('live').textContent = Math.round(liveVals[liveVals.length - 1]).toLocaleString('en-US'); };
+  drawLive();
+  if (!reduced) setInterval(() => {
+    if (document.hidden) return;
+    liveVals.shift(); liveVals.push(liveVals[liveVals.length - 1] + (Math.random() - 0.45) * 40);
+    drawLive();
+  }, 1200);
+
+  // Fit the fixed-size scene into its column
+  const fit = $('fit');
+  const resize = () => { const w = fit.clientWidth; fit.style.setProperty('--s', Math.min(1, w / (innerWidth > 960 ? 930 : 1030)).toFixed(3)); };
+  new ResizeObserver(resize).observe(fit); resize();
+
+  // Assemble from exploded view
+  const stage = $('stage');
+  // Reading offsetWidth commits the exploded start pose, so adding .on right
+  // after transitions from it without waiting on animation frames.
+  void stage.offsetWidth;
+  stage.classList.add('on');
+
+  // KPI count-up
+  document.querySelectorAll('[data-count]').forEach(b => {
+    const to = +b.dataset.count, pre = b.dataset.pre || '';
+    if (reduced) return;
+    const t0 = performance.now() + 500;
+    const tick = now => {
+      const k = Math.min(1, Math.max(0, (now - t0) / 1400)), e = 1 - Math.pow(1 - k, 3);
+      b.textContent = pre + Math.round(to * e).toLocaleString('en-US');
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+
+  // Pointer parallax with an idle sway
+  const BASE_X = 16, BASE_Y = -20;
+  let tx = 0, ty = 0, cx = 0, cy = 0, lastMove = -1e9, raf = 0;
+  const point = e => {
+    tx = (e.clientX / innerWidth) * 2 - 1;
+    ty = (e.clientY / innerHeight) * 2 - 1;
+    lastMove = performance.now();
+  };
+  addEventListener('pointermove', point, { passive: true });
+  addEventListener('pointerdown', point, { passive: true });
+  const apply = () => { stage.style.setProperty('--rx', (BASE_X - cy * 9).toFixed(2) + 'deg'); stage.style.setProperty('--ry', (BASE_Y + cx * 14).toFixed(2) + 'deg'); };
+  const frame = now => {
+    if (now - lastMove > 2500) { tx = Math.sin(now / 2600) * 0.5; ty = Math.cos(now / 3400) * 0.35; }
+    cx += (tx - cx) * 0.06; cy += (ty - cy) * 0.06;
+    apply();
+    raf = requestAnimationFrame(frame);
+  };
+  if (reduced) {
+    addEventListener('pointermove', () => { cx = tx; cy = ty; apply(); }, { passive: true });
+  } else {
+    raf = requestAnimationFrame(frame);
+    document.addEventListener('visibilitychange', () => {
+      cancelAnimationFrame(raf);
+      if (!document.hidden) raf = requestAnimationFrame(frame);
+    });
+  }
+})();
+</script>
+</body>
+</html>

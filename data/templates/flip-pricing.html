@@ -1,0 +1,377 @@
+<!doctype html>
+<!--
+  Tessera — Flip Pricing (free template)
+  Customise: edit the :root tokens below (colours, fonts, radius). Plans, prices
+  and feature lists live in the PLANS array at the top of the <script> — the
+  cards are built from it, and the yearly price is shown per month. The
+  comparison table and FAQ are plain HTML further down.
+  No dependencies, no external requests — one file, works anywhere.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tessera — Flip Pricing</title>
+<style>
+  :root {
+    --bg: #f4f2ee;
+    --paper: #ffffff;
+    --ink: #121218;
+    --muted: #6b6a75;
+    --line: rgba(18, 18, 24, .1);
+    --accent: #5b4bff;
+    --accent-2: #ff6b4a;
+    --dark: #14131c;
+    --dark-ink: #f5f3ff;
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --display: 'Avenir Next', 'Segoe UI Variable Display', 'Helvetica Neue', ui-sans-serif, system-ui, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --radius: 22px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body { font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; line-height: 1.5; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+  .wrap { width: min(1180px, 100% - 40px); margin-inline: auto; }
+  .paused * { animation-play-state: paused !important; }
+
+  .mesh { position: absolute; inset: 0 0 auto; height: 900px; overflow: hidden; pointer-events: none; z-index: 0; }
+  .mesh i { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; animation: drift 18s ease-in-out infinite alternate; }
+  .mesh i:nth-child(1) { width: 520px; height: 520px; left: 8%; top: 140px; background: #c9c1ff; }
+  .mesh i:nth-child(2) { width: 460px; height: 460px; right: 6%; top: 220px; background: #ffd0c2; animation-delay: -6s; }
+  .mesh i:nth-child(3) { width: 380px; height: 380px; left: 40%; top: 420px; background: #bfeee3; animation-delay: -11s; opacity: .45; }
+  @keyframes drift { to { transform: translate(60px, -40px) scale(1.12); } }
+
+  nav { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 1.15rem; letter-spacing: -.02em; }
+  .links { display: flex; gap: 30px; font-size: .9rem; color: var(--muted); }
+  .links a:hover, .links a[aria-current] { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; border-radius: 999px; font-size: .9rem; font-weight: 600; transition: transform .2s, box-shadow .2s, background .2s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-dark { background: var(--ink); color: #fff; }
+  .btn-dark:hover { box-shadow: 0 12px 26px -12px rgba(18,18,24,.6); }
+  .btn-line { border: 1px solid var(--line); background: rgba(255,255,255,.6); }
+  .btn-accent { background: var(--accent); color: #fff; box-shadow: 0 10px 30px -10px var(--accent); }
+  .nav-r { display: flex; align-items: center; gap: 18px; font-size: .9rem; }
+
+  header { position: relative; z-index: 1; text-align: center; padding: clamp(8px, 2vh, 28px) 0 0; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 999px; background: rgba(255,255,255,.7); border: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
+  .badge b { background: var(--ink); color: #fff; font-size: .68rem; padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+  h1 { font-family: var(--display); font-size: clamp(2.2rem, 4.6vw, 3.7rem); line-height: 1.02; letter-spacing: -.045em; margin: 16px auto 12px; max-width: 19ch; }
+  h1 span { color: var(--accent); }
+  .lede { color: var(--muted); max-width: 60ch; margin: 0 auto; font-size: 1.02rem; }
+
+  .toggle { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; margin-top: 22px; padding: 5px; border-radius: 999px; background: rgba(255,255,255,.75); border: 1px solid var(--line); box-shadow: 0 6px 20px -12px rgba(18,18,24,.3); }
+  .toggle button { position: relative; z-index: 1; padding: 9px 22px; border-radius: 999px; font-size: .88rem; font-weight: 600; color: var(--muted); transition: color .3s; white-space: nowrap; }
+  .toggle button[aria-checked="true"] { color: #fff; }
+  .toggle button em { font-style: normal; font-size: .68rem; margin-left: 6px; padding: 2px 6px; border-radius: 999px; background: #e3f9ef; color: #0d7a4f; }
+  .thumb { position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc(50% - 5px); border-radius: 999px; background: var(--ink); transition: transform .45s cubic-bezier(.6,.05,.2,1); }
+  .yearly .thumb { transform: translateX(100%); }
+
+  /* cards */
+  .plans { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; padding: 34px 0 30px; perspective: 1500px; }
+  .card { --rx: 0deg; --ry: 0deg; --gx: 50%; --gy: 0%; --g: 0; position: relative; height: 500px; transform-style: preserve-3d; transform: var(--base) rotateX(var(--rx)) rotateY(var(--ry)); cursor: pointer; }
+  .card:nth-child(1) { --base: rotateY(11deg) translateZ(-10px); }
+  .card:nth-child(2) { --base: translateZ(40px); }
+  .card:nth-child(3) { --base: rotateY(-11deg) translateZ(-10px); }
+  .flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .9s cubic-bezier(.3,1.35,.45,1); }
+  .card.flipped .flip { transform: rotateY(180deg); }
+  .side { position: absolute; inset: 0; padding: 28px; border-radius: var(--radius); background: var(--paper); border: 1px solid rgba(18,18,24,.06); backface-visibility: hidden; -webkit-backface-visibility: hidden; transform-style: preserve-3d; display: flex; flex-direction: column;
+    box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 30px 60px -30px rgba(30,20,80,.35), 0 12px 24px -16px rgba(18,18,24,.2); }
+  .back { transform: rotateY(180deg); }
+  .glare { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: var(--g); transition: opacity .4s; background: radial-gradient(60% 50% at var(--gx) var(--gy), rgba(255,255,255,.7), transparent 70%); mix-blend-mode: soft-light; }
+  .pop { transform: translateZ(36px); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .pop-s { transform: translateZ(18px); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .featured .side { background: radial-gradient(90% 60% at 100% 0%, rgba(91,75,255,.55), transparent 60%), radial-gradient(70% 50% at 0% 100%, rgba(255,107,74,.25), transparent 60%), var(--dark); color: var(--dark-ink); border-color: rgba(255,255,255,.08); }
+  .featured .side::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(140deg, rgba(255,255,255,.45), transparent 40%, rgba(91,75,255,.8)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .featured .muted, .featured .feat li { color: #b4b0cc; }
+  .featured .glare { mix-blend-mode: overlay; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  .plan { font-family: var(--display); font-weight: 700; font-size: 1.25rem; letter-spacing: -.02em; }
+  .tag { font-size: .7rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #fff; }
+  .muted { color: var(--muted); font-size: .9rem; margin-top: 6px; }
+  .price { display: flex; align-items: flex-start; gap: 2px; margin: 22px 0 4px; font-family: var(--display); font-weight: 700; letter-spacing: -.04em; }
+  .cur { font-size: 1.6rem; margin-top: .55rem; }
+  .digits { display: flex; font-size: 4rem; height: 1.25em; perspective: 500px; -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); }
+  .drum { position: relative; width: .6em; height: 1.25em; transform-style: preserve-3d; transition: transform 1.1s cubic-bezier(.2,.9,.25,1.05); }
+  .drum span { position: absolute; inset: 0; display: grid; place-items: center; line-height: 1; font-variant-numeric: tabular-nums; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .per { align-self: flex-end; margin-bottom: .9rem; font-size: .9rem; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+  .featured .per { color: #b4b0cc; }
+  .note { font-size: .78rem; color: var(--muted); min-height: 1.2em; }
+  .featured .note { color: #9e9ab8; }
+  .feat { list-style: none; display: grid; gap: 10px; margin: 22px 0; font-size: .9rem; }
+  .feat li { display: flex; gap: 10px; align-items: flex-start; color: #3d3c46; }
+  .feat svg { flex: none; margin-top: 3px; color: var(--accent); }
+  .featured .feat svg { color: #a99eff; }
+  .cta-row { margin-top: auto; display: grid; gap: 10px; }
+  .cta-row .btn { width: 100%; }
+  .featured .btn-line { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); color: var(--dark-ink); }
+  .flipbtn { font-size: .8rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; justify-content: center; padding: 6px; }
+  .flipbtn:hover { color: var(--accent); }
+  .featured .flipbtn { color: #b4b0cc; }
+  .back h3 { font-family: var(--display); font-size: 1.15rem; letter-spacing: -.02em; margin-top: 4px; }
+  .back .feat { gap: 8px; font-size: .84rem; margin: 16px 0; }
+  .shadow { position: absolute; left: 8%; right: 8%; bottom: -26px; height: 40px; border-radius: 50%; background: radial-gradient(closest-side, rgba(30,20,80,.25), transparent); transform: translateZ(-60px); filter: blur(6px); pointer-events: none; }
+  .hint { text-align: center; font-size: .8rem; color: var(--muted); position: relative; z-index: 1; }
+  .incl { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 28px; margin: 22px 0 0; font-size: .85rem; color: var(--muted); }
+  .incl span::before { content: "✓"; color: var(--accent); margin-right: 8px; font-weight: 700; }
+
+  section { padding: clamp(70px, 9vw, 110px) 0 0; }
+  .eyebrow { font-family: var(--mono); font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  h2 { font-family: var(--display); font-size: clamp(1.8rem, 3.4vw, 2.7rem); line-height: 1.05; letter-spacing: -.035em; }
+  .logos { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 18px 34px; padding: 30px 0; border-block: 1px solid var(--line); color: #8d8b96; font-size: 1.15rem; font-weight: 700; letter-spacing: -.02em; }
+  .logos span:nth-child(2) { font-family: Georgia, serif; font-style: italic; font-weight: 400; }
+  .logos span:nth-child(3) { font-family: var(--mono); font-weight: 400; letter-spacing: .1em; font-size: .95rem; }
+  .logos span:nth-child(5) { letter-spacing: .25em; font-weight: 400; font-size: .95rem; }
+
+  .compare { margin-top: 34px; background: var(--paper); border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; table-layout: fixed; }
+  th, td { padding: 15px 20px; text-align: center; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; width: 40%; }
+  thead th { font-family: var(--display); font-size: 1rem; padding-block: 22px; }
+  thead th small { display: block; font-family: var(--sans); font-weight: 400; font-size: .75rem; color: var(--muted); }
+  tbody tr.group td { background: #faf9f6; font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding-block: 10px; }
+  td:nth-child(3), th:nth-child(3) { background: rgba(91,75,255,.06); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .yes { color: var(--accent); font-weight: 700; font-size: 1.1em; } .no { color: #c4c2cc; }
+
+  .faq-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 40px; }
+  details { border-bottom: 1px solid var(--line); }
+  summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 20px; padding: 20px 0; font-weight: 600; font-size: 1.02rem; }
+  summary::-webkit-details-marker { display: none; }
+  summary i { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); position: relative; transition: transform .35s, background .35s; }
+  summary i::before, summary i::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 1.5px; background: currentColor; transform: translate(-50%, -50%); }
+  summary i::after { transform: translate(-50%, -50%) rotate(90deg); }
+  details[open] summary i { transform: rotate(45deg); background: var(--ink); color: #fff; }
+  details p { color: var(--muted); padding: 0 40px 22px 0; max-width: 62ch; }
+
+  .band { margin: clamp(70px, 9vw, 110px) 0 0; padding: clamp(34px, 6vw, 64px); border-radius: 28px; color: var(--dark-ink); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 26px;
+    background: radial-gradient(70% 120% at 100% 0%, rgba(91,75,255,.6), transparent 60%), radial-gradient(60% 120% at 0% 100%, rgba(255,107,74,.35), transparent 60%), var(--dark); }
+  .band p { color: #b4b0cc; margin-top: 10px; }
+  .band .btn-line { color: var(--dark-ink); background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.18); }
+  footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding: 36px 0 44px; font-size: .85rem; color: var(--muted); }
+  footer div { display: flex; gap: 22px; }
+
+  @media (max-width: 940px) {
+    .plans { grid-template-columns: 1fr; max-width: 440px; margin-inline: auto; gap: 30px; }
+    .card:nth-child(n) { --base: translateZ(0); }
+    .links { display: none; }
+    .faq-grid { grid-template-columns: 1fr; gap: 10px; }
+  }
+  @media (max-width: 520px) {
+    .nav-r > a:first-child { display: none; }
+    .card { height: 510px; }
+    .side { padding: 24px; }
+    th, td { padding: 12px 8px; font-size: .78rem; }
+    th:first-child, td:first-child { width: 37%; padding-left: 14px; }
+    thead th { font-size: .85rem; }
+    thead th small { display: none; }
+    td { overflow-wrap: anywhere; }
+    td:not(:first-child) { font-size: .72rem; padding-inline: 4px; }
+    .toggle button { padding: 9px 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="mesh" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="wrap">
+  <nav aria-label="Primary">
+    <a href="#" class="logo" aria-label="Tessera home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="3" fill="var(--ink)"/><rect x="14" y="2" width="10" height="10" rx="3" fill="var(--accent)"/><rect x="2" y="14" width="10" height="10" rx="3" fill="var(--accent-2)"/><rect x="14" y="14" width="10" height="10" rx="3" fill="var(--ink)" opacity=".25"/></svg>
+      Tessera
+    </a>
+    <div class="links"><a href="#">Product</a><a href="#">Integrations</a><a href="#pricing" aria-current="page">Pricing</a><a href="#">Customers</a><a href="#">Docs</a></div>
+    <div class="nav-r"><a href="#">Sign in</a><a class="btn btn-dark" href="#pricing">Start free</a></div>
+  </nav>
+
+  <header id="pricing">
+    <span class="badge"><b>New</b>Usage-based Scale plan is live</span>
+    <h1>Simple pricing for <span>serious automation.</span></h1>
+    <p class="lede">Tessera turns the busywork between your tools into workflows that run themselves. Start free for 14 days — no card, no sales call.</p>
+    <div class="toggle" id="toggle" role="radiogroup" aria-label="Billing period">
+      <span class="thumb"></span>
+      <button role="radio" aria-checked="true" data-period="monthly">Monthly</button>
+      <button role="radio" aria-checked="false" data-period="yearly">Yearly<em>−20%</em></button>
+    </div>
+  </header>
+
+  <div class="plans" id="plans"></div>
+  <p class="hint">Tap a card to flip it and see everything included.</p>
+  <div class="incl"><span>14-day free trial</span><span>Unlimited viewers</span><span>SOC 2 Type II</span><span>Cancel anytime</span></div>
+
+  <section aria-label="Customers">
+    <div class="logos"><span>Northwind</span><span>Halcyon</span><span>KILNWORKS</span><span>Pebble&amp;Co</span><span>ORBITAL</span><span>Fernhill</span></div>
+  </section>
+
+  <section id="compare">
+    <p class="eyebrow">Compare plans</p>
+    <h2>Every plan, side by side.</h2>
+    <div class="compare">
+      <table>
+        <thead><tr><th scope="col">Features</th><th scope="col">Starter<small>For solo builders</small></th><th scope="col">Pro<small>For growing teams</small></th><th scope="col">Scale<small>For operations orgs</small></th></tr></thead>
+        <tbody>
+          <tr class="group"><td colspan="4">Automation</td></tr>
+          <tr><td>Active workflows</td><td>10</td><td>Unlimited</td><td>Unlimited</td></tr>
+          <tr><td>Runs per month</td><td>5,000</td><td>50,000</td><td>500,000+</td></tr>
+          <tr><td>AI steps &amp; agents</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Run history</td><td>7 days</td><td>90 days</td><td>1 year</td></tr>
+          <tr class="group"><td colspan="4">Team &amp; security</td></tr>
+          <tr><td>Editor seats</td><td>1</td><td>10</td><td>Unlimited</td></tr>
+          <tr><td>SSO &amp; SCIM</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+          <tr><td>Audit log</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr class="group"><td colspan="4">Support</td></tr>
+          <tr><td>Response time</td><td>48h</td><td>4h</td><td>1h · 24/7</td></tr>
+          <tr><td>Uptime SLA</td><td class="no">—</td><td>99.9%</td><td>99.99%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="faq-grid">
+      <div><p class="eyebrow">FAQ</p><h2>Questions, answered.</h2><p class="muted" style="margin-top:14px">Still unsure? Our team replies within an hour on weekdays.</p></div>
+      <div>
+        <details open><summary>What counts as a run?<i></i></summary><p>A run is one complete execution of a workflow, no matter how many steps it has. Failed runs that never reach a second step are free.</p></details>
+        <details><summary>Can I switch plans later?<i></i></summary><p>Any time. Upgrades apply immediately and are prorated to the day; downgrades take effect at the end of your current billing period.</p></details>
+        <details><summary>What happens if I go over my run limit?<i></i></summary><p>Nothing breaks. Workflows keep running and we’ll email you at 80% and 100%. Extra runs are billed at $4 per 1,000 — or upgrade to make it go away.</p></details>
+        <details><summary>Do you offer discounts for nonprofits and startups?<i></i></summary><p>Yes — registered nonprofits get 50% off any plan, and startups under two years old get Pro free for their first six months.</p></details>
+        <details><summary>Where is my data stored?<i></i></summary><p>In the EU (Frankfurt) or US (Virginia), your choice. Everything is encrypted at rest and in transit, and we never train models on your data.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <div class="band">
+    <div><h2>Your first workflow takes 4 minutes.</h2><p>Join 9,000+ teams who stopped copy-pasting between tabs.</p></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn btn-accent" href="#pricing">Start free trial</a><a class="btn btn-line" href="#">Book a demo</a></div>
+  </div>
+
+  <footer><span>© 2026 Tessera Labs, Inc. Made in Amsterdam &amp; Austin.</span><div><a href="#">Status</a><a href="#">Security</a><a href="#">Terms</a><a href="#">Privacy</a></div></footer>
+</div>
+
+<script>
+(() => {
+  // Edit plans here. `monthly` and `yearly` are per-month prices; keep the same digit count for both.
+  const PLANS = [
+    { name: 'Starter', blurb: 'For solo builders automating the basics.', monthly: 29, yearly: 23, cta: 'Start free trial',
+      top: ['10 active workflows', '5,000 runs / month', '200+ integrations', 'Email support'],
+      all: ['10 active workflows', '5,000 runs per month', '200+ app integrations', 'Scheduled & webhook triggers', 'Basic branching logic', '7-day run history', '1 editor seat', 'Community templates', 'Email support (48h)'] },
+    { name: 'Pro', blurb: 'For teams running the business on autopilot.', monthly: 79, yearly: 63, cta: 'Start free trial', tag: 'Most popular', featured: true,
+      top: ['Unlimited workflows', '50,000 runs / month', 'AI steps & agents', '10 editor seats'],
+      all: ['Everything in Starter, plus:', 'Unlimited workflows', '50,000 runs per month', 'AI steps & autonomous agents', 'Approvals & human-in-the-loop', 'Versioning & rollbacks', '90-day run history', 'Audit log', 'Priority support (4h)'] },
+    { name: 'Scale', blurb: 'For ops orgs that need control at volume.', monthly: 199, yearly: 159, cta: 'Talk to sales',
+      top: ['500,000+ runs / month', 'SSO, SCIM & roles', 'Dedicated environments', '99.99% uptime SLA'],
+      all: ['Everything in Pro, plus:', '500,000+ runs, volume pricing', 'SSO, SCIM & custom roles', 'Dev / staging / prod environments', 'Private network connectors', 'EU or US data residency', '1-year run history', '99.99% uptime SLA', 'Named success manager'] },
+  ];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const check = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 8.5 3 3 7-7"/></svg>';
+  const flipIcon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 8a5.5 5.5 0 0 1 9.6-3.6M13.5 8a5.5 5.5 0 0 1-9.6 3.6"/><path d="M12.5 1.5v3h-3M3.5 14.5v-3h3"/></svg>';
+  const list = (a) => '<ul class="feat">' + a.map((x) => '<li>' + check + '<span>' + x + '</span></li>').join('') + '</ul>';
+  const drums = (n) => String(n).split('').map(() => '<span class="drum">' + [...Array(10)].map((_, i) => '<span>' + i + '</span>').join('') + '</span>').join('');
+
+  const wrap = document.getElementById('plans');
+  wrap.innerHTML = PLANS.map((p, i) => `
+    <article class="card${p.featured ? ' featured' : ''}" data-i="${i}" aria-label="${p.name} plan">
+      <div class="shadow"></div>
+      <div class="flip">
+        <div class="side front">
+          <div class="top pop-s"><span class="plan">${p.name}</span>${p.tag ? '<span class="tag">' + p.tag + '</span>' : ''}</div>
+          <p class="muted">${p.blurb}</p>
+          <div class="price pop" aria-live="polite"><span class="cur">$</span><span class="digits" aria-hidden="true">${drums(p.monthly)}</span><span class="per">/ month</span><span class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></span></div>
+          <p class="note"></p>
+          ${list(p.top)}
+          <div class="cta-row pop-s"><a class="btn ${p.featured ? 'btn-accent' : 'btn-dark'}" href="#">${p.cta}</a><button class="flipbtn" type="button">${flipIcon}See all features</button></div>
+          <div class="glare"></div>
+        </div>
+        <div class="side back">
+          <div class="top"><span class="plan">${p.name}</span><span class="note">${p.featured ? 'Most popular' : 'Full feature list'}</span></div>
+          <h3>Everything included</h3>
+          ${list(p.all)}
+          <div class="cta-row"><button class="flipbtn" type="button">${flipIcon}Back to price</button></div>
+          <div class="glare"></div>
+        </div>
+      </div>
+    </article>`).join('');
+  const cards = [...wrap.querySelectorAll('.card')];
+
+  // radius so 10 faces of height 1.25em make a closed drum
+  const R = (1.25 / 2) / Math.tan(Math.PI / 10);
+  wrap.querySelectorAll('.drum').forEach((d) => {
+    [...d.children].forEach((s, i) => { s.style.transform = 'rotateX(' + (-36 * i) + 'deg) translateZ(' + R + 'em)'; });
+    d.angle = 0; d.digit = 0;
+  });
+
+  // billing toggle + 3D digit roll
+  let period = 'monthly';
+  function setPeriod(next, first) {
+    period = next;
+    toggle.classList.toggle('yearly', next === 'yearly');
+    toggle.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', b.dataset.period === next));
+    cards.forEach((card, ci) => {
+      const p = PLANS[ci], value = p[next];
+      String(value).split('').forEach((ch, di) => {
+        const d = card.querySelectorAll('.drum')[di], n = +ch;
+        const steps = (n - d.digit + 10) % 10 + (first ? 0 : 10);
+        d.angle += steps * 36; d.digit = n;
+        d.style.transitionDelay = first ? '0ms' : (ci * 90 + di * 70) + 'ms';
+        d.style.transform = 'translateZ(-' + R + 'em) rotateX(' + d.angle + 'deg)';
+      });
+      card.querySelector('.sr').textContent = '$' + value + ' per month';
+      card.querySelector('.front .note').textContent = next === 'yearly' ? 'Billed $' + (value * 12).toLocaleString() + ' yearly — save $' + ((p.monthly - value) * 12) : 'Billed monthly. Cancel anytime.';
+    });
+  }
+  const toggle = document.getElementById('toggle');
+  toggle.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.period !== period) setPeriod(b.dataset.period); });
+  toggle.addEventListener('keydown', (e) => { if (/Arrow(Left|Right)/.test(e.key)) { setPeriod(period === 'monthly' ? 'yearly' : 'monthly'); toggle.querySelector('[aria-checked="true"]').focus(); } });
+  setPeriod('monthly', true);
+  // let the first paint show the start position, then animate
+  wrap.querySelectorAll('.drum').forEach((d) => { d.style.transition = 'none'; });
+  requestAnimationFrame(() => requestAnimationFrame(() => wrap.querySelectorAll('.drum').forEach((d) => { d.style.transition = ''; })));
+
+  // flip
+  function flip(card) {
+    const f = card.classList.toggle('flipped');
+    card.querySelector('.front').inert = f; card.querySelector('.back').inert = !f;
+  }
+  cards.forEach((c) => {
+    c.querySelector('.back').inert = true;
+    c.addEventListener('click', (e) => { if (e.target.closest('a')) return; flip(c); });
+  });
+
+  // tilt to cursor (mouse/pen only; touch just taps to flip)
+  const state = cards.map(() => ({ x: 0, y: 0, tx: 0, ty: 0, gx: 50, gy: 0, g: 0 }));
+  let raf = 0;
+  cards.forEach((c, i) => {
+    c.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch' || reduced.matches) return;
+      const r = c.getBoundingClientRect(), u = (e.clientX - r.left) / r.width, v = (e.clientY - r.top) / r.height;
+      const s = state[i], flipped = c.classList.contains('flipped');
+      s.ty = (u - 0.5) * 18; s.tx = -(v - 0.5) * 14; s.gx = (flipped ? 1 - u : u) * 100; s.gy = v * 100; s.g = 1;
+      run();
+    });
+    c.addEventListener('pointerleave', () => { const s = state[i]; s.tx = s.ty = 0; s.g = 0; run(); });
+  });
+  function tick() {
+    let moving = false;
+    cards.forEach((c, i) => {
+      const s = state[i];
+      s.x += (s.tx - s.x) * 0.12; s.y += (s.ty - s.y) * 0.12;
+      if (Math.abs(s.tx - s.x) + Math.abs(s.ty - s.y) > 0.02) moving = true;
+      c.style.setProperty('--rx', s.x.toFixed(2) + 'deg'); c.style.setProperty('--ry', s.y.toFixed(2) + 'deg');
+      c.style.setProperty('--gx', s.gx + '%'); c.style.setProperty('--gy', s.gy + '%'); c.style.setProperty('--g', s.g);
+    });
+    raf = moving && !document.hidden ? requestAnimationFrame(tick) : 0;
+  }
+  function run() { if (!raf && !document.hidden) raf = requestAnimationFrame(tick); }
+  document.addEventListener('visibilitychange', () => {
+    document.documentElement.classList.toggle('paused', document.hidden);
+    if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else run();
+  });
+})();
+</script>
+</body>
+</html>

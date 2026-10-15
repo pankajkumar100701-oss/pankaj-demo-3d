@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saffron Route — Silk Road Expedition</title>
+<!--
+  Customise: brand colours live in :root. Each stop is one .card in the HTML
+  (copy) plus one entry in STOPS at the top of the script (terrain, skyline,
+  sky palette, km and day). Scroll length, smoothing and parallax speeds live
+  in CONFIG. The landscapes are generated as inline SVG on load and on resize.
+-->
+<style>
+  :root {
+    --bg: #140d18;
+    --bg-2: #1d1322;
+    --fg: #fbf1e3;
+    --muted: rgb(251 241 227 / 0.66);
+    --line: rgb(251 241 227 / 0.14);
+    --glass: rgb(20 13 24 / 0.55);
+    --saffron: #ffb347;
+    --terra: #e8643c;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font); line-height: 1.5; overflow-x: clip; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1180px, 100% - 40px); margin-inline: auto; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 22px; border-radius: 999px; font: 600 0.95rem var(--font); border: 0; cursor: pointer; color: inherit; transition: transform 0.2s, box-shadow 0.2s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-main { background: var(--saffron); color: #2a1408; box-shadow: 0 10px 30px rgb(255 179 71 / 0.3); }
+  .btn-ghost { border: 1px solid var(--line); background: rgb(255 255 255 / 0.06); backdrop-filter: blur(6px); }
+
+  /* Nav + hero */
+  nav { position: absolute; inset: 0 0 auto; z-index: 20; padding: 20px 0; }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; font: 700 1.15rem var(--serif); letter-spacing: 0.01em; }
+  .logo svg { width: 30px; height: 30px; }
+  .links { display: flex; gap: 28px; font-size: 0.92rem; color: var(--muted); }
+  .links a:hover { color: var(--fg); }
+  nav .btn { padding: 9px 18px; font-size: 0.86rem; }
+  .hero { position: relative; min-height: 100vh; min-height: 100svh; display: flex; align-items: center; overflow: hidden; padding: 120px 0 200px; }
+  .hero-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .hero .wrap { position: relative; }
+  .tag { display: inline-flex; gap: 8px; align-items: center; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgb(20 13 24 / 0.35); font-size: 0.8rem; color: var(--muted); backdrop-filter: blur(6px); }
+  .tag b { color: var(--saffron); font-weight: 600; }
+  h1 { font: 600 clamp(2.7rem, 7.6vw, 6.4rem)/0.98 var(--serif); letter-spacing: -0.025em; margin: 22px 0 22px; text-shadow: 0 4px 40px rgb(20 10 30 / 0.5); }
+  h1 em { font-style: italic; color: var(--saffron); }
+  .hero p { color: var(--muted); font-size: clamp(1rem, 1.7vw, 1.2rem); max-width: 31rem; margin-bottom: 32px; }
+  .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stats { display: flex; gap: clamp(22px, 5vw, 56px); margin-top: 48px; flex-wrap: wrap; }
+  .stats div { font-size: 0.8rem; color: var(--muted); }
+  .stats strong { display: block; font: 600 1.7rem var(--serif); color: var(--fg); }
+
+  /* Pinned journey: the stage sticks while .journey scrolls past */
+  .journey { position: relative; background: var(--bg); }
+  .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+  .scene { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(var(--skyTop, #29224d), var(--skyBot, #f0a07c) 72%); }
+  .stars { position: absolute; inset: 0 0 30%; opacity: var(--stars, 0);
+    background: radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 28% 8%, #fff, transparent), radial-gradient(1.5px 1.5px at 44% 26%, #fff, transparent), radial-gradient(1px 1px at 61% 12%, #fff, transparent), radial-gradient(1.5px 1.5px at 77% 30%, #fff, transparent), radial-gradient(1px 1px at 88% 6%, #fff, transparent), radial-gradient(1px 1px at 6% 40%, #fff, transparent), radial-gradient(1px 1px at 53% 44%, #fff, transparent);
+    background-size: 420px 300px; }
+  .sun { position: absolute; left: 74%; top: var(--sunY, 40%); width: clamp(70px, 10vw, 130px); aspect-ratio: 1; margin: -5vw 0 0 -5vw; border-radius: 50%; background: var(--sun, #ffd9a0); box-shadow: 0 0 60px 20px color-mix(in srgb, var(--sun, #ffd9a0) 45%, transparent), 0 0 200px 80px color-mix(in srgb, var(--sun, #ffd9a0) 22%, transparent); }
+  .layer { position: absolute; left: 0; top: 0; height: 100%; will-change: transform; }
+  .layer svg { display: block; height: 100%; overflow: visible; }
+  .far path { fill: var(--far); }
+  .far .snow { fill: rgb(255 255 255 / 0.55); }
+  .haze { position: absolute; inset: 0; background: linear-gradient(transparent 45%, color-mix(in srgb, var(--skyBot) 55%, transparent) 70%, transparent 74%); pointer-events: none; }
+  .mid path { fill: var(--mid); }
+  .near .solid { fill: var(--near); }
+  .near .lit { fill: var(--saffron); opacity: var(--litO, 0.25); }
+  .fore path { fill: color-mix(in srgb, var(--near) 60%, #000); }
+  .route-ghost { fill: none; stroke: rgb(251 241 227 / 0.25); stroke-width: 3; stroke-dasharray: 0.1 12; stroke-linecap: round; }
+  .route-lit { fill: none; stroke: var(--saffron); stroke-width: 4.5; stroke-dasharray: 0.1 12; stroke-linecap: round; filter: drop-shadow(0 0 6px rgb(255 179 71 / 0.7)); }
+  .pin circle { fill: var(--near); stroke: rgb(251 241 227 / 0.5); stroke-width: 2.5; transition: stroke 0.4s, fill 0.4s; }
+  .pin.on circle { fill: var(--saffron); stroke: #fff; }
+  .pin text { fill: var(--fg); font: 600 13px var(--mono); letter-spacing: 0.14em; text-anchor: middle; opacity: 0.75; transition: opacity 0.3s; }
+  .pin.cur text, .pin.cur line { opacity: 0; }
+  .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 69%, rgb(255 210 150 / 0.08) 70%, rgb(0 0 0 / 0.3)); }
+  .caravan { position: absolute; left: 0; top: 0; width: clamp(64px, 8vw, 96px); color: var(--fg); will-change: transform; filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.35)); }
+  .caravan svg { display: block; width: 100%; }
+  .caravan .glow { position: absolute; left: 10%; right: 10%; bottom: -6px; height: 12px; border-radius: 50%; background: radial-gradient(closest-side, rgb(255 179 71 / 0.7), transparent); }
+  .caravan.walk svg { animation: bob 0.55s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-3px) rotate(-1.5deg); } }
+
+  /* Stop cards: one active card slides in, the previous one slides out */
+  .cards { position: absolute; left: max(20px, 5vw); top: clamp(80px, 14vh, 140px); width: min(380px, 100% - 40px); display: grid; z-index: 4; }
+  .card { grid-area: 1 / 1; padding: 22px 22px 18px; border-radius: 22px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 30px 60px -24px rgb(0 0 0 / 0.6);
+    opacity: 0; transform: translateX(60px); transition: opacity 0.5s, transform 0.7s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+  .card.past { transform: translateX(-60px); }
+  .card.on { opacity: 1; transform: none; pointer-events: auto; }
+  .card-top { display: flex; justify-content: space-between; align-items: center; font: 600 0.72rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .card-top .n { color: var(--saffron); }
+  .card h3 { font: 600 clamp(1.9rem, 3.4vw, 2.6rem)/1.05 var(--serif); margin: 10px 0 8px; }
+  .card p { color: var(--muted); font-size: 0.93rem; }
+  .card .hi { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--fg); font-size: 0.86rem; display: flex; gap: 10px; align-items: center; }
+  .card .hi::before { content: "★"; color: var(--saffron); }
+
+  /* HUD + progress bar */
+  .hud { position: absolute; right: max(20px, 5vw); top: clamp(84px, 14vh, 140px); text-align: right; z-index: 4; font: 600 0.72rem var(--mono); letter-spacing: 0.16em; color: var(--muted); text-transform: uppercase; }
+  .hud strong { display: block; font: 600 clamp(2rem, 4vw, 3.2rem)/1 var(--serif); letter-spacing: 0; color: var(--fg); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .hud div + div { margin-top: 14px; }
+  .bar { position: absolute; left: max(20px, 5vw); right: max(20px, 5vw); bottom: 26px; height: 46px; z-index: 5; }
+  .bar::before, .bar .fill { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 3px; border-radius: 3px; background: rgb(251 241 227 / 0.2); }
+  .bar .fill { background: linear-gradient(90deg, var(--terra), var(--saffron)); transform-origin: left; transform: scaleX(0); }
+  .bar button { position: absolute; top: 0; left: var(--x); transform: translateX(-50%); background: none; border: 0; color: var(--muted); font: 600 0.68rem var(--mono); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; display: grid; justify-items: center; gap: 9px; white-space: nowrap; transition: color 0.3s; }
+  .bar button::before { content: ""; width: 17px; height: 17px; border-radius: 50%; background: var(--bg); border: 3px solid rgb(251 241 227 / 0.35); transition: border-color 0.3s, transform 0.3s, background 0.3s; }
+  .bar button.on::before { border-color: var(--saffron); background: var(--saffron); }
+  .bar button.cur { color: var(--fg); }
+  .bar button.cur::before { transform: scale(1.3); box-shadow: 0 0 0 5px rgb(255 179 71 / 0.25); }
+  .bar button:first-of-type { transform: none; justify-items: start; }
+  .bar button:last-of-type { transform: translateX(-100%); justify-items: end; }
+
+  /* Booking */
+  .book { padding: clamp(80px, 12vw, 140px) 0; background: radial-gradient(60% 50% at 80% 0%, rgb(232 100 60 / 0.16), transparent 70%), var(--bg); }
+  .eyebrow { font: 600 0.75rem var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--saffron); }
+  .book h2 { font: 600 clamp(2.1rem, 5vw, 3.8rem)/1.02 var(--serif); margin: 14px 0 16px; max-width: 15ch; }
+  .book .lede { color: var(--muted); max-width: 34rem; }
+  .book-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; margin-top: 48px; align-items: start; }
+  .deps { display: grid; gap: 10px; }
+  .dep { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; padding: 18px 20px; border-radius: 18px; border: 1px solid var(--line); background: var(--bg-2); cursor: pointer; transition: border-color 0.25s, background 0.25s; }
+  .dep input { appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); margin: 0; transition: border 0.2s; }
+  .dep input:checked { border: 6px solid var(--saffron); }
+  .dep:has(input:checked) { border-color: rgb(255 179 71 / 0.6); background: rgb(255 179 71 / 0.06); }
+  .dep b { display: block; font: 600 1.1rem var(--serif); }
+  .dep small { color: var(--muted); font-size: 0.82rem; }
+  .dep .price { text-align: right; font: 600 1.15rem var(--serif); }
+  .dep .price small { display: block; font-family: var(--font); }
+  .dep.low small.seats { color: var(--terra); }
+  .dep.sold { opacity: 0.45; cursor: not-allowed; }
+  .panel { padding: 26px; border-radius: 22px; background: linear-gradient(160deg, rgb(255 179 71 / 0.12), transparent 50%), var(--bg-2); border: 1px solid var(--line); }
+  .panel h3 { font: 600 1.4rem var(--serif); margin-bottom: 14px; }
+  .incl { list-style: none; display: grid; gap: 8px; font-size: 0.9rem; color: var(--muted); margin-bottom: 22px; }
+  .incl li::before { content: "✓"; color: var(--saffron); margin-right: 10px; font-weight: 700; }
+  .panel label { display: grid; gap: 6px; font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
+  .panel input, .panel select { font: 500 0.95rem var(--font); color: var(--fg); background: rgb(255 255 255 / 0.05); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; width: 100%; }
+  .panel select option { color: #111; }
+  .total { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 0 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .total strong { font: 600 1.8rem var(--serif); }
+  .panel .btn { width: 100%; }
+  .ok { margin-top: 12px; font-size: 0.86rem; color: var(--saffron); min-height: 1.3em; }
+  footer { border-top: 1px solid var(--line); padding: 26px 0 34px; font-size: 0.84rem; color: var(--muted); }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+  footer nav { position: static; padding: 0; display: flex; gap: 20px; }
+
+  @media (max-width: 820px) {
+    .links { display: none; }
+    .book-grid { grid-template-columns: minmax(0, 1fr); }
+    .cards { top: 78px; left: 16px; width: calc(100% - 32px); }
+    .card { padding: 16px 18px 14px; border-radius: 18px; }
+    .card h3 { font-size: 1.8rem; margin: 6px 0 4px; }
+    .card p { font-size: 0.86rem; }
+    .hud { top: auto; bottom: 84px; right: 16px; }
+    .hud strong { font-size: 1.6rem; }
+    .hud div + div { display: none; }
+    .bar { left: 16px; right: 16px; }
+    /* non-current labels stay 11px but are clipped to the dot, so no sub-10px text */
+    .bar button { font-size: 11px; letter-spacing: 0.1em; }
+    .bar button:not(.cur) { width: 23px; height: 23px; grid-template-columns: 23px; gap: 0; overflow: clip; overflow-clip-margin: 8px; color: transparent; }
+    .bar button.cur { gap: 9px; }
+  }
+  @media (max-width: 820px) and (max-height: 700px) { .card .hi { display: none; } }
+
+  /* Reduced motion: no pinning, a static landscape and every stop listed */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .journey { height: auto !important; padding-bottom: 60px; }
+    .stage { position: relative; height: auto; overflow: visible; }
+    .scene { position: relative; height: 70vh; }
+    .bar, .hud { display: none; }
+    .cards { position: static; width: min(1180px, 100% - 40px); margin: 40px auto 0; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+    .card, .card.past { grid-area: auto; opacity: 1; transform: none; pointer-events: auto; background: var(--bg-2); }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="camel" viewBox="0 0 64 48">
+    <path fill="currentColor" d="M9 25c0-7 4-12 9-12 3 0 4.5 2.5 6.5 2.5S28 9 33 9s6.5 5 8.5 8.5c1.4 2.4 4.2 2.4 5.3.2L50 9.5c.7-1.8 2-2.8 3.8-2.8h3.4c1.6 0 2.2 1.7 1 2.7L56 11.2l-4.2 13.2c-1 3-3.2 5-6.3 5.8l-.6 2.3H13.8l-.6-3C10.6 28.8 9 27.2 9 25Z"/>
+    <path fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" d="M16 30.5 15 46M21 31l1.2 15M38.5 31l-1.2 15M43.5 30l1.8 16M9.8 24 6.5 32"/>
+    <path fill="#e8643c" d="M22 15.5c3-1.6 7-1.6 10 .2l-1 6.5h-8z"/>
+  </symbol>
+</svg>
+
+<nav>
+  <div class="wrap">
+    <a href="#top" class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#ffb347"/><path d="M4 21c5-6 9-6 12-2s8 3 12-2v8a12 12 0 0 1-24 0z" fill="#e8643c"/><use href="#camel" x="9" y="7" width="14" height="11" color="#2a1408"/></svg>Saffron Route</a>
+    <div class="links"><a href="#route">The route</a><a href="#book">Departures</a><a href="#book">What's included</a></div>
+    <a href="#book" class="btn btn-main">Reserve a seat</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <svg class="hero-art" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="hsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1236"/><stop offset=".42" stop-color="#5e2a58"/><stop offset=".7" stop-color="#d9644a"/><stop offset=".86" stop-color="#f9b46a"/></linearGradient>
+      <radialGradient id="hglow"><stop offset="0" stop-color="#ffd08a" stop-opacity=".9"/><stop offset="1" stop-color="#ffd08a" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="1440" height="900" fill="url(#hsky)"/>
+    <circle cx="1040" cy="560" r="330" fill="url(#hglow)" opacity=".55"/>
+    <circle cx="1040" cy="560" r="96" fill="#ffe4ad"/>
+    <g data-depth="0.12"><path fill="#9b4366" d="M0 640 L120 560 L210 600 L330 500 L420 560 L520 470 L610 540 L700 520 L820 430 L900 500 L980 470 L1090 540 L1200 460 L1300 530 L1440 480 V900 H0Z"/></g>
+    <g data-depth="0.25"><path fill="#b9503f" d="M0 650 C160 610 260 630 380 600 S640 560 760 610 1020 640 1160 590 1360 600 1440 620 V900 H0Z"/></g>
+    <g data-depth="0.42"><path fill="#7a2c3e" d="M0 700 C200 650 330 690 470 670 S760 610 920 660 1210 700 1440 650 V900 H0Z"/></g>
+    <g data-depth="0.6" fill="#2a1426" color="#2a1426">
+      <path d="M0 760 C180 720 360 700 560 712 C760 724 900 690 1060 700 C1230 712 1340 740 1440 730 V900 H0Z"/>
+      <use href="#camel" x="560" y="652" width="72" height="54"/><use href="#camel" x="640" y="656" width="66" height="50"/><use href="#camel" x="716" y="660" width="62" height="47"/><use href="#camel" x="788" y="664" width="56" height="42"/>
+    </g>
+  </svg>
+  <div class="wrap">
+    <span class="tag"><b>2027</b> departures · 12 travellers max</span>
+    <h1>The Silk Road,<br><em>end to end.</em></h1>
+    <p>Twenty-one days by rail, road and camel from Xi'an to Khiva — seven caravan cities, three deserts and one unhurried route.</p>
+    <div class="ctas"><a href="#route" class="btn btn-main">Follow the route ↓</a><a href="#book" class="btn btn-ghost">See departures</a></div>
+    <div class="stats">
+      <div><strong>21</strong>days</div>
+      <div><strong>5,670</strong>km overland</div>
+      <div><strong>7</strong>caravan cities</div>
+    </div>
+  </div>
+</header>
+
+<section class="journey" id="route" aria-label="The route, stop by stop">
+  <div class="stage">
+    <div class="scene" aria-hidden="true">
+      <div class="stars"></div>
+      <div class="sun"></div>
+      <div class="layer far" data-speed="far"></div>
+      <div class="haze"></div>
+      <div class="layer mid" data-speed="mid"></div>
+      <div class="layer near" data-speed="near"></div>
+      <div class="shade"></div>
+      <div class="caravan"><svg viewBox="0 0 64 48"><use href="#camel"/></svg><i class="glow"></i></div>
+      <div class="layer fore" data-speed="fore"></div>
+    </div>
+    <div class="hud" aria-hidden="true"><div><strong id="day">01</strong>Day of 21</div><div><strong id="km">0</strong>Kilometres</div></div>
+
+    <div class="cards">
+      <article class="card">
+        <div class="card-top"><span class="n">Stop 01</span><span>Days 1–3 · China</span></div>
+        <h3>Xi'an</h3>
+        <p>Where the road began. Walk the Ming walls at dawn and meet the Terracotta Army before the crowds arrive.</p>
+        <p class="hi">Early private entry to the Terracotta Army</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="n">Stop 02</span><span>Days 4–6 · China</span></div>
+        <h3>Dunhuang</h3>
+        <p>Dunes that hum in the wind and cave temples painted over a thousand years, at the edge of the Gobi.</p>
+        <p class="hi">Mogao Caves with a conservator</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="n">Stop 03</span><span>Days 7–8 · China</span></div>
+        <h3>Turpan</h3>
+        <p>The hottest corner of the route: red Flaming Mountains, mud-brick ruins and vineyards fed by underground canals.</p>
+        <p class="hi">Flaming Mountains at sunset</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="n">Stop 04</span><span>Days 9–12 · China</span></div>
+        <h3>Kashgar</h3>
+        <p>Beneath the Pamirs, the Sunday bazaar still trades in camels, carpets and news from both sides of the mountains.</p>
+        <p class="hi">The Sunday livestock market</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="n">Stop 05</span><span>Days 13–16 · Uzbekistan</span></div>
+        <h3>Samarkand</h3>
+        <p>Over the Irkeshtam Pass into Central Asia, where the turquoise domes of the Registan glow after dark.</p>
+        <p class="hi">The Registan, lit at night</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="n">Stop 06</span><span>Days 17–19 · Uzbekistan</span></div>
+        <h3>Bukhara</h3>
+        <p>A living museum of 140 monuments, with green tea under the mulberry trees of Lyabi-Hauz.</p>
+        <p class="hi">Kalyan Minaret at golden hour</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="n">Stop 07</span><span>Days 20–21 · Uzbekistan</span></div>
+        <h3>Khiva</h3>
+        <p>End inside the walls of Itchan Kala, toasting the road from a rooftop as the minarets turn gold.</p>
+        <p class="hi">Sunset over the Kalta Minor</p>
+      </article>
+    </div>
+    <div class="bar" id="bar"><i class="fill"></i></div>
+  </div>
+</section>
+
+<section class="book" id="book">
+  <div class="wrap">
+    <span class="eyebrow">Departures 2027</span>
+    <h2>Twelve seats. One very long road.</h2>
+    <p class="lede">Small groups, a historian guide end to end, and every border, train and permit handled. Pick a departure and hold your seat with no deposit for 14 days.</p>
+    <div class="book-grid">
+      <form class="deps" id="deps" aria-label="Choose a departure">
+        <label class="dep"><input type="radio" name="dep" value="6480" data-name="Apr 11 – May 1" checked><span><b>Apr 11 – May 1</b><small>Spring blossom in the Fergana Valley</small></span><span class="price">$6,480<small class="seats">5 seats left</small></span></label>
+        <label class="dep low"><input type="radio" name="dep" value="6680" data-name="May 16 – Jun 5"><span><b>May 16 – Jun 5</b><small>Long days, mild deserts</small></span><span class="price">$6,680<small class="seats">2 seats left</small></span></label>
+        <label class="dep sold"><input type="radio" name="dep" disabled><span><b>Jun 20 – Jul 10</b><small>Silk festival in Margilan</small></span><span class="price">$6,880<small>Sold out</small></span></label>
+        <label class="dep"><input type="radio" name="dep" value="6180" data-name="Oct 10 – Oct 30"><span><b>Oct 10 – Oct 30</b><small>Golden poplars, crisp nights</small></span><span class="price">$6,180<small class="seats">9 seats left</small></span></label>
+      </form>
+      <form class="panel" id="hold">
+        <h3>What's included</h3>
+        <ul class="incl"><li>20 nights in boutique hotels, a caravanserai and a yurt camp</li><li>All trains, transfers and the Irkeshtam crossing</li><li>Historian guide plus local experts at every stop</li><li>Most meals, every entry fee and visa support</li></ul>
+        <label>Travellers<select id="pax"><option value="1">1 traveller</option><option value="2" selected>2 travellers</option><option value="3">3 travellers</option><option value="4">4 travellers</option></select></label>
+        <label>Email<input type="email" id="email" placeholder="you@example.com" required></label>
+        <div class="total"><span style="color:var(--muted);font-size:.85rem" id="sum">Apr 11 – May 1 · 2 travellers</span><strong id="price">$12,960</strong></div>
+        <button class="btn btn-main" type="submit">Hold my seats</button>
+        <p class="ok" id="ok" role="status"></p>
+      </form>
+    </div>
+  </div>
+</section>
+<footer>
+  <div class="wrap">
+    <span>© 2027 Saffron Route Expeditions</span>
+    <nav><a href="#top">Top</a><a href="#route">The route</a><a href="#book">Departures</a></nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const CONFIG = {
+    scrollPerStop: 120,  // vh of scrolling between two stops
+    smoothing: 0.09,     // 0–1: how quickly the view catches up with the scrollbar
+    hold: 0.2,           // 0–0.45: share of each leg spent paused at a stop
+    spacing: 1.0,        // distance between stops on the ground, x viewport width
+    markerX: 0.64,       // caravan position across the screen (0.5 on phones)
+    speeds: { far: 0.16, mid: 0.42, near: 1, fore: 1.7 }, // parallax per layer
+  };
+
+  // Terrain + sky per stop. relief = mountain height, dunes = dune height,
+  // sky = [top, horizon, far, mid, near], sun = height (0 top – 1 bottom).
+  const STOPS = [
+    { name: "Xi'an",     day: 1,  km: 0,    relief: .35, dunes: .2,  skyline: "xian",      sun: .52, sky: ["#2b2350", "#f0a07c", "#7c5b88", "#a3627a", "#2c1c33"] },
+    { name: "Dunhuang",  day: 4,  km: 1720, relief: .2,  dunes: 1,   skyline: "dunhuang",  sun: .2,  sky: ["#3a6ea5", "#f7d7a1", "#c4a083", "#e2a65f", "#6b3d22"] },
+    { name: "Turpan",    day: 7,  km: 2400, relief: .5,  dunes: .5,  skyline: "turpan",    sun: .26, sky: ["#7a3b2e", "#ffb36b", "#c3735c", "#d5643c", "#4a1d16"] },
+    { name: "Kashgar",   day: 9,  km: 3900, relief: 1,   dunes: .3,  skyline: "kashgar",   sun: .18, sky: ["#1f3f66", "#b4cfe0", "#7f99b6", "#9c8a78", "#2f2a33"] },
+    { name: "Samarkand", day: 13, km: 4950, relief: .55, dunes: .25, skyline: "samarkand", sun: .3,  sky: ["#1a5d74", "#f2c98c", "#6f8e93", "#c9935a", "#1e2b33"] },
+    { name: "Bukhara",   day: 17, km: 5220, relief: .2,  dunes: .55, skyline: "bukhara",   sun: .5,  sky: ["#4a2346", "#ff9a5a", "#9a5a72", "#d3744c", "#2a1424"] },
+    { name: "Khiva",     day: 20, km: 5670, relief: .1,  dunes: .7,  skyline: "khiva",     sun: .8,  sky: ["#0f1530", "#5b3d73", "#3c3a66", "#5b3e5e", "#120c1c"] },
+  ];
+
+  const N = STOPS.length;
+  const journey = document.getElementById("route");
+  const scene = journey.querySelector(".scene");
+  const layers = [...scene.querySelectorAll(".layer")];
+  const caravan = scene.querySelector(".caravan");
+  const cards = [...journey.querySelectorAll(".card")];
+  const bar = document.getElementById("bar");
+  const fill = bar.querySelector(".fill");
+  const dayEl = document.getElementById("day"), kmEl = document.getElementById("km");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smooth = (t) => t * t * (3 - 2 * t);
+  const fmt = (d) => d.replace(/-?\d+\.\d+/g, (m) => (+m).toFixed(1));
+
+  let W = 0, H = 0, D = 0, gap = 0, mx = 0, hz = 0;
+  let cur = 0, target = 0, raf = 0, active = -1, lastS = 0;
+  let routeY = () => 0, clipRect = null, pins = [];
+
+  // Sample a stop property at a fractional stop position.
+  const at = (key, s) => { const i = clamp(Math.floor(s), 0, N - 2), f = smooth(clamp(s - i, 0, 1)); return lerp(STOPS[i][key], STOPS[i + 1][key], f); };
+  const hex = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
+  const mix = (a, b, t) => "rgb(" + hex(a).map((v, k) => Math.round(lerp(v, hex(b)[k], t))).join(" ") + ")";
+  // Triangle wave in 0..1, for jagged ridgelines.
+  const tri = (x) => 1 - Math.abs(((x % 2) + 2) % 2 - 1) * 2;
+
+  // ---- Skyline pieces: drawn in "units" on a baseline at y = 0 (up is -y),
+  // then scaled per stop with a transform. 1 unit = 1% of the stage height.
+  const S = {
+    rect: (x, w, h, y = 0) => `M${x} ${y}h${w}v${-h}h${-w}z`,
+    taper: (x, wb, wt, h, y = 0) => `M${x - wb / 2} ${y}L${x - wt / 2} ${y - h}H${x + wt / 2}L${x + wb / 2} ${y}z`,
+    dome: (x, r, k = 1.6, y = 0) => `M${x - r} ${y}C${x - r} ${y - r * 1.1} ${x - r * .3} ${y - r * 1.2} ${x} ${y - r * k}C${x + r * .3} ${y - r * 1.2} ${x + r} ${y - r * 1.1} ${x + r} ${y}z`,
+    arch: (x, w, h, y = 0) => `M${x - w / 2} ${y}v${w / 2 - h}a${w / 2} ${w / 2} 0 0 1 ${w} 0v${h - w / 2}z`,
+  };
+  const minaret = (x, w, h) => S.taper(x, w, w * .7, h) + S.rect(x - w * .6, w * 1.2, h * .05, -h * .78) + S.dome(x, w * .45, 2, -h);
+  const poplar = (x, h) => `M${x} 0c${-h * .2} ${-h * .3} ${-h * .14} ${-h * .8} 0 ${-h}c${h * .14} ${h * .2} ${h * .2} ${h * .7} 0 ${h}z`;
+  const pagoda = (x, w, tiers, th, y = 0) => {
+    let d = "";
+    for (let j = 0; j < tiers; j++, y -= th * 1.35) {
+      const ww = w * (1 - j * .1);
+      d += S.rect(x - ww / 2, ww, th, y) + `M${x - ww * .68} ${y - th}L${x - ww * .45} ${y - th * 1.35}H${x + ww * .45}L${x + ww * .68} ${y - th}z`;
+    }
+    return d + S.taper(x, w * .12, .1, th * 1.5, y);
+  };
+  const houses = (x, n, seed) => { let d = ""; for (let k = 0; k < n; k++) { const w = 3 + (seed * (k + 3)) % 5; d += S.rect(x, w, 2.5 + (seed * (k + 7)) % 4); x += w + .4; } return d; };
+  const walls = (x, w, h) => { let d = S.rect(x, w, h); for (let k = x; k < x + w - 1; k += 2) d += S.rect(k, 1, 1, -h); return d; };
+
+  // Returns [silhouette, lit windows] path data for one stop
+  const SKYLINES = {
+    xian: () => [walls(-30, 46, 6) + pagoda(-9, 13, 2, 3.5, -6) + pagoda(26, 10, 7, 3.3) + houses(33, 5, 3), S.arch(-9, 4, 4.5)],
+    dunhuang: () => [pagoda(10, 8, 2, 3) + poplar(2, 13) + poplar(19, 11) + houses(-26, 2, 5), ""],
+    turpan: () => [houses(-34, 7, 7) + S.taper(12, 7, 3.5, 30) + S.dome(12, 1.9, 1.6, -30) + houses(18, 3, 2), S.rect(11.4, 1.2, 2.4, -18) + S.rect(11.4, 1.2, 2.4, -25)],
+    kashgar: () => [S.rect(-6, 18, 11) + minaret(-8, 2.8, 18) + minaret(14, 2.8, 18) + S.dome(3, 4, 1.3, -11) + poplar(-18, 15) + poplar(-22, 12) + houses(20, 4, 4) + S.dome(42, 4, .9), S.arch(3, 6, 8)],
+    samarkand: () => {
+      let s = minaret(34.5, 2.4, 28), l = "";
+      [[-22, 15, 20], [0, 19, 26], [22, 15, 20]].forEach(([o, w, h]) => { s += S.rect(o - w / 2, w, h) + S.dome(o, w * .28, 1.9, -h) + minaret(o - w / 2 - 1.5, 2.4, h + 8); l += S.arch(o, w * .5, h * .75); });
+      return [s, l];
+    },
+    bukhara: () => [S.taper(4, 7, 4.6, 36) + S.rect(1.2, 5.6, 4, -36) + S.dome(4, 2.4, 1.3, -40) + S.rect(-26, 22, 9) + S.dome(-15, 8, 1.5, -9) + houses(10, 5, 6) + poplar(-32, 12), S.rect(2, 4, 1.4, -34.5) + S.arch(-15, 5, 6)],
+    khiva: () => [walls(-40, 80, 8) + S.rect(-6, 12, 6) + S.taper(-18, 13, 11, 20) + "M-23.5 -20a5.5 3 0 0 1 11 0z" + minaret(14, 3.6, 40) + S.dome(1, 6, 1.3, -8) + S.dome(28, 4, 1.3, -8)
+      + [-30, -12, 10, 32].map((o) => S.dome(o, 2.6, 1.5, -8)).join(""), S.arch(0, 4, 5) + S.rect(13, 2, 1.2, -30)],
+  };
+
+  // ---- Build every layer as an SVG sized to the stage --------------------
+  function build() {
+    W = scene.clientWidth; H = scene.clientHeight;
+    const narrow = W <= 820;
+    gap = W * CONFIG.spacing * (narrow ? 1.25 : 1);
+    mx = W * (narrow ? 0.5 : CONFIG.markerX);
+    D = gap * (N - 1);
+    hz = H * (narrow ? 0.7 : 0.69);
+    const u = Math.min(H, W * 1.3) / 100;
+
+    layers.forEach((el) => {
+      const k = CONFIG.speeds[el.dataset.speed], lw = Math.ceil(W + D * k + 40);
+      // Which stop is centred on screen when this layer x is under the caravan
+      const sAt = (x) => clamp((x - mx) / (D * k || 1) * (N - 1), 0, N - 1);
+      let body = "";
+      if (el.dataset.speed === "far") {
+        let d = `M0 ${H}`, snow = "";
+        for (let x = 0; x <= lw; x += 18) {
+          const a = at("relief", sAt(x)), n = .5 * tri(x / 260) + .3 * tri(x / 113 + .4) + .2 * tri(x / 47);
+          const y = hz - H * (.06 + .34 * a * n);
+          d += `L${x} ${y}`;
+          if (a > .6 && n > .72) snow += S.taper(x, y + H * .03, H * .05, 0, H * .03);
+        }
+        body = `<path d="${fmt(d + `L${lw} ${H}z`)}"/><path class="snow" d="${fmt(snow)}"/>`;
+      } else if (el.dataset.speed === "mid") {
+        let d = `M0 ${H}`;
+        for (let x = 0; x <= lw; x += 14) {
+          const a = at("dunes", sAt(x));
+          d += `L${x} ${hz + 4 - H * (.015 + .1 * a * (.55 + .45 * Math.sin(x / 170) * Math.sin(x / 61 + 1)))}`;
+        }
+        body = `<path d="${fmt(d + `L${lw} ${H}z`)}"/>`;
+      } else if (el.dataset.speed === "near") {
+        // Ground, city skylines, the route and the stop pins
+        let ground = `M0 ${H}`;
+        for (let x = 0; x <= lw; x += 20) ground += `L${x} ${hz + Math.sin(x / 90) * 2}`;
+        const cities = STOPS.map((st, i) => { const [a, b] = SKYLINES[st.skyline]();
+          return `<g transform="translate(${(mx + (i + .06) * gap).toFixed(1)} ${(hz + 1).toFixed(1)}) scale(${u.toFixed(3)})"><path class="solid" d="${fmt(a)}"/><path class="lit" d="${fmt(b)}"/></g>`; }).join("");
+        routeY = (x) => hz + (H - hz) * (.42 + (narrow ? .1 : .16) * Math.sin(x / gap * Math.PI * 2 + .6) * Math.sin((x / gap) * Math.PI));
+        let route = "";
+        for (let x = 0; x <= lw; x += 10) route += (x ? "L" : "M") + x + " " + routeY(x);
+        route = fmt(route);
+        const pinsSvg = STOPS.map((st, i) => { const x = mx + i * gap, y = routeY(x); return `<g class="pin"><line x1="${x}" x2="${x}" y1="${y}" y2="${y - 34}" stroke="rgb(251 241 227 / .35)" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="7"/><text x="${x}" y="${y - 42}">${st.name.toUpperCase()}</text></g>`; }).join("");
+        body = `<defs><clipPath id="trail"><rect x="0" y="0" width="${mx}" height="${H}"/></clipPath></defs>
+          <path class="solid" d="${fmt(ground + `L${lw} ${H}z`)}"/>${cities}
+          <path class="route-ghost" d="${route}"/><path class="route-lit" d="${route}" clip-path="url(#trail)"/>${pinsSvg}`;
+      } else {
+        let d = `M0 ${H}`;
+        for (let x = 0; x <= lw; x += 16) d += `L${x} ${H - H * (.03 + .045 * Math.max(0, tri(x / 180) * tri(x / 77 + .3)))}`;
+        body = `<path d="${fmt(d + `L${lw} ${H}z`)}"/>`;
+      }
+      el.style.width = lw + "px";
+      el.innerHTML = `<svg width="${lw}" height="${H}" viewBox="0 0 ${lw} ${H}">${body}</svg>`;
+    });
+    const near = scene.querySelector(".near");
+    clipRect = near.querySelector("#trail rect");
+    pins = [...near.querySelectorAll(".pin")];
+    if (!reduce.matches) journey.style.height = `calc(${CONFIG.scrollPerStop * (N - 1)}vh + 100vh)`;
+  }
+
+  // Progress bar buttons double as "jump to stop" controls
+  STOPS.forEach((st, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = st.name; b.style.setProperty("--x", (i / (N - 1)) * 100 + "%");
+    b.addEventListener("click", () => {
+      const top = journey.getBoundingClientRect().top + scrollY;
+      scrollTo({ top: top + (journey.offsetHeight - innerHeight) * i / (N - 1), behavior: reduce.matches ? "auto" : "smooth" });
+    });
+    bar.appendChild(b);
+  });
+  const dots = [...bar.querySelectorAll("button")];
+
+  function setActive(i) {
+    if (i === active) return;
+    active = i;
+    cards.forEach((c, k) => { c.classList.toggle("on", k === i); c.classList.toggle("past", k < i); });
+    dots.forEach((d, k) => d.classList.toggle("cur", k === i));
+  }
+
+  // Scroll progress (0–1) -> stop position, with a pause around each stop
+  function stopPos(p) {
+    const lin = p * (N - 1), i = Math.min(N - 2, Math.floor(lin)), f = lin - i, h = CONFIG.hold / 2;
+    return i + smooth(clamp((f - h) / (1 - 2 * h), 0, 1));
+  }
+
+  function render(p) {
+    const s = stopPos(p), x = (s * gap);
+    layers.forEach((el) => { el.style.transform = `translate3d(${(-x * CONFIG.speeds[el.dataset.speed]).toFixed(1)}px,0,0)`; });
+    // Sky palette + sun + stars
+    const i = clamp(Math.floor(s), 0, N - 2), f = smooth(clamp(s - i, 0, 1));
+    const a = STOPS[i].sky, b = STOPS[i + 1].sky, st = scene.style;
+    ["--skyTop", "--skyBot", "--far", "--mid", "--near"].forEach((v, k) => st.setProperty(v, mix(a[k], b[k], f)));
+    st.setProperty("--sun", mix("#fff0c4", "#ff8a5c", clamp(s - 5, 0, 1)));
+    st.setProperty("--sunY", (W <= 820 ? 44 + at("sun", s) * 18 : at("sun", s) * 70) + "%");
+    st.setProperty("--stars", clamp(s - 5, 0, 1).toFixed(2));
+    st.setProperty("--litO", (0.2 + 0.75 * clamp(s - 4.6, 0, 1.4) / 1.4).toFixed(2));
+    // Caravan rides the route, tilted by its slope, facing the direction of travel
+    const tx = mx + x, y = routeY(tx), slope = clamp(Math.atan2(routeY(tx + 12) - routeY(tx - 12), 24) * 180 / Math.PI, -10, 10);
+    const dir = s < lastS - 1e-4 ? -1 : s > lastS + 1e-4 ? 1 : caravan._dir || 1;
+    caravan._dir = dir;
+    caravan.classList.toggle("walk", Math.abs(s - lastS) > 1e-4);
+    caravan.style.transform = `translate3d(${mx - caravan.offsetWidth / 2}px, ${y - caravan.offsetHeight * .92}px, 0) rotate(${slope.toFixed(1)}deg) scaleX(${dir})`;
+    lastS = s;
+    if (clipRect) clipRect.setAttribute("width", tx.toFixed(1));
+    pins.forEach((pin, k) => { pin.classList.toggle("on", k <= s + .02); pin.classList.toggle("cur", Math.abs(k - s) < .3); });
+    // HUD, bar and cards
+    dayEl.textContent = String(Math.round(at("day", s))).padStart(2, "0");
+    kmEl.textContent = Math.round(at("km", s)).toLocaleString("en-US");
+    fill.style.transform = `scaleX(${(s / (N - 1)).toFixed(4)})`;
+    dots.forEach((d, k) => d.classList.toggle("on", k <= s + .02));
+    setActive(clamp(Math.round(s), 0, N - 1));
+  }
+
+  function read() {
+    const range = journey.offsetHeight - innerHeight;
+    target = range > 0 ? clamp(-journey.getBoundingClientRect().top / range, 0, 1) : 0;
+  }
+
+  // Hero layers drift at different speeds on the way out
+  const heroGroups = [...document.querySelectorAll(".hero-art g[data-depth]")];
+  function hero() {
+    const y = scrollY;
+    if (y > innerHeight * 1.2) return;
+    heroGroups.forEach((g) => { g.style.transform = `translateY(${(y * g.dataset.depth * .5).toFixed(1)}px)`; });
+  }
+
+  function tick() {
+    raf = 0;
+    read(); hero();
+    cur += (target - cur) * CONFIG.smoothing;
+    if (Math.abs(target - cur) < 0.0002) cur = target;
+    render(cur);
+    if (cur !== target) kick();
+    else caravan.classList.remove("walk");
+  }
+  function kick() {
+    if (!raf && !document.hidden && !reduce.matches) raf = requestAnimationFrame(tick);
+  }
+
+  let rz = 0;
+  addEventListener("resize", () => {
+    cancelAnimationFrame(rz);
+    rz = requestAnimationFrame(() => { build(); read(); cur = target; render(cur); });
+  });
+
+  build();
+  if (reduce.matches) {
+    render(0);
+    cards.forEach((c) => c.classList.add("on"));
+  } else {
+    addEventListener("scroll", kick, { passive: true });
+    document.addEventListener("visibilitychange", kick);
+    read(); cur = target; render(cur);
+  }
+
+  // ---- Booking: live total + a local confirmation (no network) ----------
+  const deps = document.getElementById("deps"), form = document.getElementById("hold");
+  const pax = document.getElementById("pax"), price = document.getElementById("price"), sum = document.getElementById("sum"), ok = document.getElementById("ok");
+  function total() {
+    const d = deps.querySelector("input:checked"), n = +pax.value;
+    price.textContent = "$" + (d.value * n).toLocaleString("en-US");
+    sum.textContent = `${d.dataset.name} · ${n} traveller${n > 1 ? "s" : ""}`;
+  }
+  deps.addEventListener("change", total); pax.addEventListener("change", total);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    ok.textContent = `Seats held for ${deps.querySelector("input:checked").dataset.name}. We'll email ${document.getElementById("email").value} within a day.`;
+  });
+  total();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<!--
+  Sill & Stone — Room Tour (free template)
+  Customise: every colour in the page AND the 3D room is a token. The three room styles are
+  the [data-style] blocks below (Scandinavian / Japandi / Midnight) — edit or add your own.
+  Furniture and hotspots are built in the <script>; prices, names and camera settings live in CONFIG.
+  No dependencies, no external requests — one file, works anywhere.
+-->
+<html lang="en" data-style="scandi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sill &amp; Stone — Room Tour</title>
+<style>
+  :root {
+    --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  [data-style="scandi"] {
+    --bg: #f6f3ee; --bg-2: #ffffff; --ink: #1f1d1a; --muted: #6f6a62; --accent: #c0643b; --accent-ink: #fff; --panel: rgba(255, 255, 255, .78);
+    --wall: #f1eee8; --wall-2: #e4e7e3; --ceil: #fbfaf7; --floor-a: #dcc29d; --floor-b: #cdb08a; --wood: #d8b88c; --wood-2: #b38c60;
+    --fab: #cfd2cf; --fab-2: #b4b9b6; --stone: #ece6db; --metal: #2b2b2b; --pot: #e8e2d8; --leaf: #4f8d52;
+    --rug-a: #f3efe7; --rug-b: #d8d1c4; --art-1: #e07a4f; --art-2: #3d5a6c; --art-3: #f2c46d;
+    --sky-a: #8cc4f2; --sky-b: #e7f3fb; --glow: rgba(255, 224, 170, .22); --sun: rgba(255, 246, 220, .55);
+  }
+  [data-style="japandi"] {
+    --bg: #efe9e1; --bg-2: #f8f4ee; --ink: #26211c; --muted: #75695d; --accent: #8a5a3b; --accent-ink: #fff; --panel: rgba(248, 244, 238, .8);
+    --wall: #e2d7c8; --wall-2: #cfbea8; --ceil: #ece4d8; --floor-a: #7a5a40; --floor-b: #6a4c35; --wood: #5d4330; --wood-2: #3e2c1f;
+    --fab: #e3d8c6; --fab-2: #c9baa3; --stone: #b9ab98; --metal: #2a241f; --pot: #a8775a; --leaf: #5a7a4a;
+    --rug-a: #d8cbb6; --rug-b: #b9a68a; --art-1: #2b2622; --art-2: #b5523b; --art-3: #d9c7a7;
+    --sky-a: #f2a96b; --sky-b: #fde3c2; --glow: rgba(255, 196, 130, .3); --sun: rgba(255, 210, 160, .45);
+  }
+  [data-style="midnight"] {
+    --bg: #0d1220; --bg-2: #151c30; --ink: #eef0f8; --muted: #9aa3bd; --accent: #d9b26a; --accent-ink: #1b1508; --panel: rgba(16, 22, 40, .76);
+    --wall: #1d2742; --wall-2: #24345a; --ceil: #151d33; --floor-a: #3b2c22; --floor-b: #2f231b; --wood: #4a3426; --wood-2: #2e2018;
+    --fab: #1f5a52; --fab-2: #164640; --stone: #2b2f3a; --metal: #d9b26a; --pot: #2d3448; --leaf: #3f7a55;
+    --rug-a: #2a3352; --rug-b: #3a4670; --art-1: #d9b26a; --art-2: #8fa6e8; --art-3: #e86a5a;
+    --sky-a: #0b1430; --sky-b: #2a3d72; --glow: rgba(255, 196, 110, .5); --sun: rgba(150, 175, 255, .16);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--sans); color: var(--ink); background: var(--bg); line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased; transition: background-color .9s, color .9s; }
+  a { color: inherit; text-decoration: none; }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  .wrap { width: min(1200px, 100% - 40px); margin-inline: auto; }
+
+  nav { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); transition: background-color .9s; }
+  nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+  .logo { font: 600 1.2rem var(--serif); display: flex; align-items: center; gap: 10px; }
+  .logo svg { width: 24px; height: 24px; }
+  .links { display: flex; gap: 26px; margin-left: auto; font-size: .88rem; color: var(--muted); }
+  .links a:hover { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 22px; border-radius: 999px; font-weight: 600; font-size: .9rem; background: var(--accent); color: var(--accent-ink); transition: transform .2s, box-shadow .2s, background-color .9s; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -14px var(--accent); }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }
+
+  /* hero: the 3D room */
+  .hero { position: relative; }
+  .stage { position: relative; height: min(84vh, 760px); min-height: 520px; overflow: hidden; background: var(--wall); cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+  .stage.drag { cursor: grabbing; }
+  .world { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+  .world, .world * { transform-style: preserve-3d; }
+  .world div, .world b, .world i { position: absolute; display: block; }
+  .p { backface-visibility: hidden; }
+  .floor { background: repeating-linear-gradient(90deg, transparent 0 118px, rgba(0, 0, 0, .12) 118px 120px), repeating-linear-gradient(0deg, var(--floor-a) 0 360px, var(--floor-b) 360px 362px, var(--floor-a) 362px 720px),
+    linear-gradient(90deg, var(--floor-a), var(--floor-b) 50%, var(--floor-a)); }
+  .floor::after { content: ""; position: absolute; inset: 0; background: radial-gradient(closest-side, transparent 55%, rgba(0, 0, 0, .28)); }
+  .wall { --wc: var(--wall); background: linear-gradient(rgba(0, 0, 0, .1), transparent 14% 80%, rgba(0, 0, 0, .1) 97%, var(--wood-2) 97%), linear-gradient(90deg, rgba(0, 0, 0, .1), transparent 12% 88%, rgba(0, 0, 0, .1)), linear-gradient(var(--wc), var(--wc)); }
+  .wall.accent { --wc: var(--wall-2); }
+  .ceil { background: radial-gradient(closest-side, var(--ceil), color-mix(in srgb, var(--ceil) 82%, #000)); }
+  .glow { border-radius: 50%; background: radial-gradient(closest-side, var(--glow), transparent); pointer-events: none; }
+  .sunpatch { background: linear-gradient(90deg, var(--sun), transparent); pointer-events: none; -webkit-mask: linear-gradient(transparent, #000 15% 85%, transparent); mask: linear-gradient(transparent, #000 15% 85%, transparent); }
+  .rug { border-radius: 10px; background: repeating-linear-gradient(45deg, transparent 0 22px, color-mix(in srgb, var(--rug-b) 60%, transparent) 22px 24px), radial-gradient(closest-side, var(--rug-a) 70%, var(--rug-b)); box-shadow: inset 0 0 0 10px var(--rug-b), inset 0 0 0 13px var(--rug-a); }
+  .m-wood { background: linear-gradient(90deg, var(--wood), color-mix(in srgb, var(--wood) 85%, var(--wood-2)), var(--wood)); }
+  .m-wood2 { background: var(--wood-2); }
+  .m-fab { background: radial-gradient(circle at 50% 40%, var(--fab), var(--fab-2) 140%); }
+  .m-fab2 { background: var(--fab-2); }
+  .m-stone { background: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--stone) 80%, #fff), var(--stone)); }
+  .m-metal { background: var(--metal); }
+  .m-pot { background: linear-gradient(90deg, var(--pot), color-mix(in srgb, var(--pot) 70%, #000)); }
+  .m-shade { background: linear-gradient(color-mix(in srgb, #fff3d6 70%, var(--fab)), #fff3d6); box-shadow: 0 0 40px 8px var(--glow); }
+  .leaf { width: 46px; height: 120px; margin: -120px 0 0 -23px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; transform-origin: 50% 100%;
+    background: linear-gradient(90deg, var(--leaf), color-mix(in srgb, var(--leaf) 60%, #fff) 50%, color-mix(in srgb, var(--leaf) 70%, #000) 51%); }
+  .frame { border: 10px solid var(--wood-2); background: var(--bg-2); padding: 14px; box-shadow: 0 12px 30px -8px rgba(0, 0, 0, .45); }
+  .frame svg { width: 100%; height: 100%; display: block; }
+  .window { border: 12px solid var(--ceil); background: radial-gradient(60px 60px at 70% 28%, var(--sky-b), transparent), linear-gradient(var(--sky-a), var(--sky-b)); box-shadow: 0 0 80px 10px var(--sun), inset 0 0 0 2px rgba(0, 0, 0, .1); }
+  .window::before, .window::after { content: ""; position: absolute; background: var(--ceil); }
+  .window::before { left: 50%; top: 0; bottom: 0; width: 10px; margin-left: -5px; }
+  .window::after { top: 45%; left: 0; right: 0; height: 10px; }
+  .window i { inset: auto 0 0 0; height: 30%; background: linear-gradient(transparent, color-mix(in srgb, var(--leaf) 60%, var(--sky-a))); clip-path: polygon(0 60%, 15% 30%, 30% 55%, 48% 20%, 66% 50%, 82% 25%, 100% 50%, 100% 100%, 0 100%); }
+  .mirror { border-radius: 110px 110px 6px 6px; border: 8px solid var(--metal); background: linear-gradient(160deg, color-mix(in srgb, var(--sky-b) 50%, var(--wall)), var(--wall-2) 50%, color-mix(in srgb, var(--wall) 70%, #fff)); box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .4); }
+  .door { background: linear-gradient(90deg, rgba(0, 0, 0, .12), transparent 8%), var(--wall-2); box-shadow: inset 0 0 0 8px var(--wood-2); }
+  .door::after { content: ""; position: absolute; right: 22px; top: 52%; width: 8px; height: 28px; border-radius: 4px; background: var(--metal); }
+
+  /* hotspots billboard toward the camera */
+  .hot { width: 0; height: 0; }
+  .hot button { position: absolute; left: -17px; top: -17px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, .92); color: #1f1d1a; font-weight: 700; font-size: 18px; line-height: 34px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .3); transition: transform .25s; }
+  .hot button::before { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .8); animation: pulse 2.2s infinite; }
+  .hot.on button { background: var(--accent); color: var(--accent-ink); transform: scale(1.15); }
+  @keyframes pulse { from { transform: scale(.8); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+
+  .intro { position: absolute; z-index: 5; left: max(20px, calc(50% - 600px)); top: 50%; transform: translateY(-50%); width: min(440px, 100% - 40px); padding: 30px; border-radius: 22px;
+    background: var(--panel); backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2); box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .45); transition: background-color .9s; }
+  .eyebrow { font: 500 .72rem var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--accent); }
+  h1 { font: 500 clamp(2.1rem, 4vw, 3.3rem)/1.04 var(--serif); letter-spacing: -.02em; margin: 12px 0; }
+  h1 em { color: var(--accent); }
+  .lede { color: var(--muted); font-size: .98rem; }
+  .intro .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+  .styles { position: absolute; z-index: 6; right: 20px; top: 20px; display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: var(--panel); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .4); }
+  .styles button { padding: 8px 14px; border-radius: 999px; font-size: .8rem; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; transition: background-color .3s, color .3s; }
+  .styles button i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .2); }
+  .styles button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  .info { position: absolute; z-index: 6; right: 20px; bottom: 20px; width: 290px; padding: 18px 18px 16px; border-radius: 18px; background: var(--panel); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 24px 50px -24px rgba(0, 0, 0, .5); opacity: 0; transform: translateY(12px); transition: opacity .35s, transform .35s, background-color .9s; pointer-events: none; }
+  .info.show { opacity: 1; transform: none; pointer-events: auto; }
+  .info small { font: 500 .66rem var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  .info h3 { font: 500 1.2rem/1.25 var(--serif); margin: 4px 0 2px; }
+  .info .pr { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .info p { color: var(--muted); font-size: .85rem; margin: 6px 0 12px; }
+  .info .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .info .save { white-space: nowrap; font-size: .8rem; font-weight: 600; padding: 7px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }
+  .info .x { position: absolute; right: 10px; top: 8px; font-size: 1.2rem; color: var(--muted); width: 28px; height: 28px; }
+  .hint { position: absolute; z-index: 5; left: 50%; bottom: 16px; transform: translateX(-50%); font: .68rem var(--mono); letter-spacing: .16em; text-transform: uppercase; color: #fff; background: rgba(0, 0, 0, .35); padding: 6px 12px; border-radius: 99px; white-space: nowrap; pointer-events: none; }
+
+  /* sections */
+  section { padding: 96px 0; }
+  .sec-head { max-width: 640px; margin-bottom: 44px; }
+  h2 { font: 500 clamp(1.9rem, 3.6vw, 2.8rem)/1.1 var(--serif); letter-spacing: -.015em; margin: 10px 0 12px; }
+  .sec-head p { color: var(--muted); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card { padding: 28px; border-radius: 18px; background: var(--bg-2); border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent); transition: transform .3s, background-color .9s; }
+  .card:hover { transform: translateY(-4px); }
+  .card svg { width: 40px; height: 40px; margin-bottom: 16px; }
+  .card h3 { font: 500 1.3rem var(--serif); margin-bottom: 6px; }
+  .card p { color: var(--muted); font-size: .94rem; }
+  .card .pr { display: block; margin-top: 16px; font: 500 .78rem var(--mono); color: var(--accent); letter-spacing: .08em; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; counter-reset: s; border-top: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+  .steps div { padding: 26px 24px 0 0; }
+  .steps div::before { counter-increment: s; content: "0" counter(s); display: block; font: 500 .8rem var(--mono); color: var(--accent); margin-bottom: 10px; }
+  .steps h3 { font: 500 1.15rem var(--serif); margin-bottom: 4px; }
+  .steps p { color: var(--muted); font-size: .9rem; }
+  .consult { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding: 56px; border-radius: 26px; background: var(--bg-2); border: 1px solid color-mix(in srgb, var(--ink) 9%, transparent); transition: background-color .9s; }
+  .consult p { color: var(--muted); }
+  form { display: grid; gap: 12px; }
+  input, select { width: 100%; padding: 13px 16px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); background: var(--bg); }
+  .ok { font-size: .88rem; color: var(--accent); min-height: 1.4em; }
+  footer { padding: 40px 0 50px; color: var(--muted); font-size: .85rem; border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 40px; justify-content: space-between; }
+  footer .wrap div { display: flex; gap: 22px; flex-wrap: wrap; }
+
+  @media (max-width: 900px) {
+    .links { display: none; } nav .btn { margin-left: auto; }
+    .stage { height: 62vh; min-height: 420px; max-height: 600px; }
+    .intro { position: relative; left: auto; top: auto; transform: none; width: auto; margin: -40px 20px 0; }
+    .grid3, .consult { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .consult { padding: 32px 24px; }
+  }
+  @media (max-width: 520px) {
+    nav .btn { padding: 9px 15px; font-size: .82rem; }
+    .styles { left: 12px; right: 12px; top: 12px; justify-content: space-between; }
+    .styles button { padding: 7px 10px; font-size: .74rem; }
+    .info { left: 12px; right: 12px; bottom: 52px; width: auto; padding: 14px 16px 12px; border-radius: 16px; }
+    .info h3 { font-size: 1.05rem; padding-right: 26px; }
+    .info p { font-size: .8rem; margin: 4px 0 8px; }
+    .info .x { width: 36px; height: 36px; right: 6px; top: 4px; }
+    .hint { display: none; }
+    .steps { grid-template-columns: 1fr; }
+    section { padding: 64px 0; }
+    .intro { padding: 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a href="#tour" class="logo" aria-label="Sill and Stone home"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" aria-hidden="true"><path d="M3 21V9l9-6 9 6v12z"/><path d="M9 21v-7h6v7"/></svg>Sill &amp; Stone</a>
+    <div class="links"><a href="#tour">Room tour</a><a href="#services">Services</a><a href="#process">Process</a><a href="#consult">Consultation</a></div>
+    <a href="#consult" class="btn">Book a consult</a>
+  </div>
+</nav>
+
+<header class="hero" id="tour">
+  <div class="stage" id="stage" tabindex="0" aria-label="Interactive 3D room. Drag or use arrow keys to look around.">
+    <div class="world" id="world"></div>
+    <div class="styles" role="group" aria-label="Room style" id="styles">
+      <button data-s="scandi" aria-pressed="true" style="--c:#e4dccd"><i></i>Scandinavian</button>
+      <button data-s="japandi" aria-pressed="false" style="--c:#7a5a40"><i></i>Japandi</button>
+      <button data-s="midnight" aria-pressed="false" style="--c:#1d2742"><i></i>Midnight</button>
+    </div>
+    <div class="info" id="info" role="dialog" aria-live="polite" aria-label="Product details">
+      <button class="x" id="infoX" aria-label="Close">×</button>
+      <small id="iKind"></small><h3 id="iName"></h3><span class="pr" id="iPrice"></span><p id="iText"></p>
+      <div class="row"><span class="eyebrow" id="iMat"></span><button class="save" id="iSave">♡ Save</button></div>
+    </div>
+    <div class="hint">Drag to look around · tap the dots</div>
+  </div>
+  <div class="intro">
+    <span class="eyebrow">Interior studio · Copenhagen</span>
+    <h1>Walk the room <em>before we build it.</em></h1>
+    <p class="lede">We design calm, lived-in rooms and let you step inside them first. Look around, switch the style, and tap any piece to see what it is and what it costs.</p>
+    <div class="cta"><a href="#consult" class="btn">Book a free consult</a><a href="#services" class="btn ghost">Our services</a></div>
+  </div>
+</header>
+
+<section id="services">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Services</span><h2>From a single corner to the whole home.</h2><p>Every project gets a walkable 3D model like the one above, a sourced shopping list and one designer who stays with you until the last cushion lands.</p></div>
+    <div class="grid3">
+      <article class="card"><svg viewBox="0 0 40 40" fill="none" stroke="var(--accent)" stroke-width="1.7"><path d="M5 34V14L20 5l15 9v20z"/><path d="M13 34V22h14v12"/></svg>
+        <h3>Full-home design</h3><p>Layouts, lighting plans, joinery and furniture for every room, delivered as a 3D walkthrough and a build-ready pack.</p><span class="pr">From €4,800</span></article>
+      <article class="card"><svg viewBox="0 0 40 40" fill="none" stroke="var(--accent)" stroke-width="1.7"><rect x="5" y="9" width="30" height="20" rx="3"/><path d="M14 35h12M20 29v6"/><circle cx="20" cy="19" r="4"/></svg>
+        <h3>Single-room refresh</h3><p>One room, two concepts, one decision. Ideal for living rooms, bedrooms and home offices that need a new mood.</p><span class="pr">From €1,450</span></article>
+      <article class="card"><svg viewBox="0 0 40 40" fill="none" stroke="var(--accent)" stroke-width="1.7"><path d="M6 14h28l-3 20H9z"/><path d="M14 14a6 6 0 0 1 12 0"/></svg>
+        <h3>Sourcing &amp; styling</h3><p>We order, track and install everything, from vintage finds to custom upholstery, at our trade prices.</p><span class="pr">Up to 20% trade discount</span></article>
+    </div>
+  </div>
+</section>
+
+<section id="process" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Process</span><h2>Four steps, about six weeks.</h2></div>
+    <div class="steps">
+      <div><h3>Listen</h3><p>A 45-minute consult at home or on video. We measure, photograph and ask how you really live.</p></div>
+      <div><h3>Model</h3><p>Within ten days you walk a 3D model of your room in two styles and pick a direction.</p></div>
+      <div><h3>Refine</h3><p>We tune materials, light and budget together until every piece earns its place.</p></div>
+      <div><h3>Install</h3><p>Our team delivers, assembles and styles the room in a single day. You just come home.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="consult" style="padding-top:0">
+  <div class="wrap consult">
+    <div><span class="eyebrow">Consultation</span><h2>Your first 45 minutes are on us.</h2><p>Tell us about the room. A designer will reply within one working day with a time that suits you.</p></div>
+    <form id="form">
+      <input required name="name" placeholder="Your name" aria-label="Your name">
+      <input required type="email" name="email" placeholder="Email address" aria-label="Email address">
+      <select name="room" aria-label="Room"><option>Living room</option><option>Bedroom</option><option>Kitchen &amp; dining</option><option>Whole home</option></select>
+      <button class="btn" type="submit">Request my consult</button>
+      <div class="ok" id="ok" role="status"></div>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Sill &amp; Stone Interiors ApS · Copenhagen · Stockholm</span>
+    <div><a href="#tour">Room tour</a><a href="#services">Services</a><a href="#process">Process</a><a href="#consult">Contact</a></div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const CONFIG = {
+    room: { w: 1300, d: 1300, floor: 250, ceil: -400 }, // room size in px, centred on x=0, z=0; eye level is y=0
+    eye: 220,            // camera distance from the room centre toward the front wall
+    fov: .42,            // perspective = stage width × fov (smaller = wider lens)
+    start: [-24, -6],    // starting [yaw, pitch] in degrees
+    pan: 3.2,            // idle auto-pan speed, degrees per second
+    idleAfter: 3500,     // ms of no input before the auto-pan resumes
+    dragSpeed: .22,      // degrees per dragged px
+    currency: '€',
+  };
+  // hotspots: position in room px; names can differ per style
+  const ITEMS = [
+    { id: 'sofa', at: [0, 120, -560], kind: 'Seating', price: 3450, mat: 'Upholstery', name: { scandi: 'Bouclé three-seater', japandi: 'Low linen sofa', midnight: 'Velvet three-seater' }, text: 'Deep 98 cm seat, feather-wrapped cushions and removable covers. Made in Denmark.' },
+    { id: 'chair', at: [290, 150, -250], kind: 'Seating', price: 1240, mat: 'Solid oak', name: { scandi: 'Oak lounge chair', japandi: 'Walnut lounge chair', midnight: 'Smoked oak lounge chair' }, text: 'Steam-bent frame with a sling seat. The one chair everyone fights over.' },
+    { id: 'table', at: [0, 175, -330], kind: 'Tables', price: 1890, mat: 'Travertine', name: { scandi: 'Travertine coffee table', japandi: 'Stone & ash coffee table', midnight: 'Smoked stone coffee table' }, text: 'Honed stone top on a solid timber base. 120 × 60 cm, sealed against rings.' },
+    { id: 'lamp', at: [-360, -110, -540], kind: 'Lighting', price: 460, mat: 'Linen & steel', name: { scandi: 'Linen floor lamp', japandi: 'Washi floor lamp', midnight: 'Brass floor lamp' }, text: 'Warm 2700 K glow with a dimmable cord switch. 160 cm tall.' },
+    { id: 'shelf', at: [-565, 20, -150], kind: 'Storage', price: 2150, mat: 'Ash veneer', name: { scandi: 'Ash wall shelving', japandi: 'Dark oak shelving', midnight: 'Walnut library wall' }, text: 'Modular bays you can extend later. Fixed to the wall, no visible brackets.' },
+    { id: 'plant', at: [465, 60, -470], kind: 'Styling', price: 180, mat: 'Glazed clay', name: { scandi: 'Fiddle-leaf fig', japandi: 'Olive tree in clay', midnight: 'Bird of paradise' }, text: 'Sourced from a Copenhagen nursery, with a care card and a 6-month guarantee.' },
+    { id: 'art', at: [0, -160, -630], kind: 'Art', price: 640, mat: 'Giclée print', name: { scandi: 'Print “Dune I”', japandi: 'Print “Ensō”', midnight: 'Print “Nocturne”' }, text: 'Limited edition of 50 on cotton rag, framed in solid wood. 70 × 50 cm.' },
+    { id: 'board', at: [0, 100, 556], kind: 'Storage', price: 2980, mat: 'Walnut', name: { scandi: 'Oak sideboard', japandi: 'Walnut sideboard', midnight: 'Lacquered sideboard' }, text: 'Push-to-open doors, cable cut-outs and adjustable shelves. 180 cm wide.' },
+  ];
+
+  // register the room colours so a style switch cross-fades every material
+  const COLORS = 'wall wall-2 ceil floor-a floor-b wood wood-2 fab fab-2 stone metal pot leaf rug-a rug-b art-1 art-2 art-3 sky-a sky-b glow sun'.split(' ');
+  if (window.CSS && CSS.registerProperty) COLORS.forEach((n) => { try { CSS.registerProperty({ name: '--' + n, syntax: '<color>', inherits: true, initialValue: '#888' }); } catch (e) {} });
+  document.documentElement.style.transition = COLORS.map((n) => `--${n} .9s`).join(', ');
+  const $ = (id) => document.getElementById(id);
+  const stage = $('stage'), world = $('world'), info = $('info');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const { w: W, d: D, floor: FY, ceil: CY } = CONFIG.room, H = FY - CY;
+  const el = (cls, parent, css) => { const d = document.createElement('div'); d.className = cls; if (css) d.style.cssText = css; parent.appendChild(d); return d; };
+  // a flat plane centred at its origin, then moved by tf
+  const plane = (parent, cls, w, h, tf) => el('p ' + cls, parent, `left:${-w / 2}px;top:${-h / 2}px;width:${w}px;height:${h}px;transform:${tf}`);
+  // a box resting `up` px above the floor at (x, z); faces are shaded by orientation
+  const SHADE = ['rgba(0,0,0,0)', 'rgba(0,0,0,.25)', 'rgba(0,0,0,.12)', 'rgba(0,0,0,.2)', 'rgba(255,255,255,.12)', 'rgba(0,0,0,.4)'];
+  const box = (parent, x, up, z, w, h, d, mat, extra = '') => {
+    const b = el('', parent, `transform:translate3d(${x}px, ${FY - up - h / 2}px, ${z}px) ${extra}`);
+    [[w, h, `translateZ(${d / 2}px)`], [w, h, `rotateY(180deg) translateZ(${d / 2}px)`], [d, h, `rotateY(90deg) translateZ(${w / 2}px)`],
+     [d, h, `rotateY(-90deg) translateZ(${w / 2}px)`], [w, d, `rotateX(90deg) translateZ(${h / 2}px)`], [w, d, `rotateX(-90deg) translateZ(${h / 2}px)`]]
+      .forEach(([fw, fh, t], i) => plane(b, mat, fw, fh, t).style.boxShadow = `inset 0 0 0 999px ${SHADE[i]}`);
+    return b;
+  };
+
+  // shell: floor, ceiling, four walls
+  plane(world, 'floor', W, D, `translateY(${FY}px) rotateX(90deg)`);
+  plane(world, 'ceil', W, D, `translateY(${CY}px) rotateX(-90deg)`);
+  const cy = (FY + CY) / 2;
+  plane(world, 'wall accent', W, H, `translate3d(0, ${cy}px, ${-D / 2}px)`);
+  plane(world, 'wall', W, H, `translate3d(0, ${cy}px, ${D / 2}px) rotateY(180deg)`);
+  plane(world, 'wall', D, H, `translate3d(${-W / 2}px, ${cy}px, 0) rotateY(90deg)`);
+  plane(world, 'wall', D, H, `translate3d(${W / 2}px, ${cy}px, 0) rotateY(-90deg)`);
+  // wall-mounted pieces sit 2px off their wall
+  const onBack = (cls, w, h, x, y, z = -D / 2 + 2) => plane(world, cls, w, h, `translate3d(${x}px, ${y}px, ${z}px)`);
+  const onFront = (cls, w, h, x, y) => plane(world, cls, w, h, `translate3d(${x}px, ${y}px, ${D / 2 - 2}px) rotateY(180deg)`);
+  const onRight = (cls, w, h, z, y) => plane(world, cls, w, h, `translate3d(${W / 2 - 2}px, ${y}px, ${z}px) rotateY(-90deg)`);
+  const onFloor = (cls, w, d, x, z, lift = 1) => plane(world, cls, w, d, `translate3d(${x}px, ${FY - lift}px, ${z}px) rotateX(90deg)`);
+
+  // window + light
+  onRight('window', 400, 300, -150, FY - 340).innerHTML = '<i></i>';
+  onFloor('sunpatch', 520, 400, W / 2 - 260, -120, 1.5);
+  box(world, W / 2 - 14, 158, -150, 28, 10, 440, 'm-wood');
+  onBack('glow', 520, 520, -360, FY - 280, -D / 2 + 3);
+
+  // rug, sofa, coffee table
+  onFloor('rug', 600, 380, 0, -410);
+  const S = -560;
+  box(world, 0, 18, S, 520, 54, 170, 'm-fab2');
+  box(world, 0, 18, S - 68, 520, 140, 34, 'm-fab');
+  [-1, 1].forEach((s) => {
+    box(world, s * 242, 18, S, 36, 100, 170, 'm-fab');
+    box(world, s * 112, 72, S + 10, 218, 26, 140, 'm-fab');
+    box(world, s * 112, 98, S - 42, 210, 84, 24, 'm-fab', 'rotateX(-10deg)');
+    [-1, 1].forEach((t) => box(world, s * 240, 0, S + t * 70, 10, 18, 10, 'm-wood2'));
+  });
+  const T = -330;
+  box(world, 0, 46, T, 250, 14, 120, 'm-stone');
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => box(world, a * 104, 0, T + b * 44, 14, 46, 14, 'm-wood'));
+  box(world, -60, 60, T + 6, 60, 10, 46, 'm-wood2');
+  box(world, 56, 60, T - 8, 34, 34, 34, 'm-pot');
+
+  // floor lamp
+  box(world, -360, 0, S, 56, 6, 56, 'm-metal');
+  box(world, -360, 6, S, 5, 270, 5, 'm-metal');
+  box(world, -360, 262, S, 84, 66, 84, 'm-shade');
+
+  // lounge chair, angled toward the room
+  const chair = el('', world, 'transform:translate3d(300px, 0, -270px) rotateY(-38deg)');
+  box(chair, 0, 36, 0, 120, 18, 116, 'm-fab');
+  box(chair, 0, 54, -54, 120, 100, 20, 'm-fab', 'rotateX(-14deg)');
+  [-1, 1].forEach((s) => {
+    box(chair, s * 66, 60, 4, 10, 10, 124, 'm-wood');
+    [-1, 1].forEach((t) => box(chair, s * 66, 0, t * 52, 10, 64, 10, 'm-wood'));
+  });
+
+  // shelving on the left wall, books drawn as an inline SVG strip per shelf
+  const SX = -W / 2 + 34, SZ = -150;
+  box(world, SX, 0, SZ - 156, 64, 420, 12, 'm-wood'); box(world, SX, 0, SZ + 156, 64, 420, 12, 'm-wood');
+  const bookColors = ['var(--art-1)', 'var(--art-2)', 'var(--art-3)', 'var(--fab-2)', 'var(--wood-2)', 'var(--stone)'];
+  [0, 104, 208, 312, 410].forEach((up, r) => {
+    box(world, SX, up, SZ, 64, 10, 300, 'm-wood');
+    if (r > 3) return;
+    let x = 4, svg = '';
+    while (x < 280) {
+      const bw = 10 + ((x * 7 + r * 13) % 12), bh = 60 + ((x * 3 + r * 11) % 30);
+      if ((x + r * 40) % 97 > 80) { x += 24; continue; }
+      svg += `<rect x="${x}" y="${92 - bh}" width="${bw - 2}" height="${bh}" fill="${bookColors[(x + r) % 6]}"/>`; x += bw;
+    }
+    plane(world, '', 296, 92, `translate3d(${SX}px, ${FY - up - 10 - 46}px, ${SZ}px) rotateY(90deg)`).innerHTML = `<svg viewBox="0 0 296 92" width="296" height="92">${svg}</svg>`;
+  });
+
+  // plant: a pot plus leaves fanned around the stem
+  box(world, 500, 0, -520, 80, 84, 80, 'm-pot');
+  const plant = el('', world, `transform:translate3d(500px, ${FY - 80}px, -520px)`);
+  for (let i = 0; i < 9; i++) {
+    const l = el('leaf', plant, `transform:rotateY(${i * 40}deg) translateY(${-(i % 3) * 46}px) rotateX(${-22 - (i % 3) * 8}deg)`);
+    if (i % 2) l.style.filter = 'brightness(.85)';
+  }
+  box(world, 500, 84, -520, 6, 130, 6, 'm-wood2');
+
+  // art above the sofa
+  const art = onBack('frame', 340, 240, 0, FY - 390);
+  art.innerHTML = '<svg viewBox="0 0 100 70" preserveAspectRatio="none"><rect width="100" height="70" fill="var(--rug-a)"/><circle cx="66" cy="28" r="16" fill="var(--art-3)"/><path d="M0 70V48Q25 30 50 46T100 40V70z" fill="var(--art-1)"/><path d="M0 70V58Q30 46 60 60T100 56V70z" fill="var(--art-2)"/></svg>';
+  onBack('frame', 120, 160, 300, FY - 370).innerHTML = '<svg viewBox="0 0 40 54"><rect width="40" height="54" fill="var(--rug-a)"/><path d="M8 46V22a12 12 0 0 1 24 0v24z" fill="var(--art-2)"/></svg>';
+
+  // behind the camera: sideboard, mirror, door
+  box(world, 0, 16, D / 2 - 40, 540, 110, 70, 'm-wood');
+  [-1, 1].forEach((s) => box(world, s * 250, 0, D / 2 - 40, 12, 16, 12, 'm-wood2'));
+  box(world, -170, 126, D / 2 - 44, 40, 60, 40, 'm-pot');
+  box(world, 170, 126, D / 2 - 44, 90, 8, 60, 'm-wood2');
+  onFront('mirror', 220, 300, 0, FY - 330);
+  onFront('door', 220, 440, -470, FY - 220);
+
+  // pendant light over the coffee table
+  box(world, 0, FY - CY - 160, T, 2, 160, 2, 'm-metal');
+  box(world, 0, FY - CY - 200, T, 90, 40, 90, 'm-shade');
+
+  // hotspots
+  const hots = ITEMS.map((it, i) => {
+    const h = el('hot', world);
+    const b = document.createElement('button');
+    b.textContent = '+'; b.setAttribute('aria-label', 'Show details: ' + it.name.scandi);
+    b.addEventListener('pointerdown', (e) => e.stopPropagation());
+    b.addEventListener('click', () => { lastUser = performance.now(); open(i === current ? -1 : i); });
+    h.appendChild(b); it.el = h; return h;
+  });
+
+  // info card
+  let current = -1;
+  const saved = new Set();
+  const style = () => document.documentElement.dataset.style;
+  const fill = () => {
+    if (current < 0) return;
+    const it = ITEMS[current];
+    $('iKind').textContent = it.kind; $('iName').textContent = it.name[style()];
+    $('iPrice').textContent = CONFIG.currency + it.price.toLocaleString('en-US'); $('iText').textContent = it.text; $('iMat').textContent = it.mat;
+    $('iSave').textContent = saved.has(it.id) ? '♥ Saved' : '♡ Save';
+  };
+  const open = (i) => {
+    if (current >= 0) ITEMS[current].el.classList.remove('on');
+    current = i;
+    if (i < 0) { info.classList.remove('show'); return; }
+    ITEMS[i].el.classList.add('on'); fill(); info.classList.add('show');
+  };
+  $('infoX').addEventListener('click', () => { lastUser = performance.now(); open(-1); });
+  $('iSave').addEventListener('click', () => { const id = ITEMS[current].id; saved.has(id) ? saved.delete(id) : saved.add(id); fill(); });
+  info.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+  // style switch
+  $('styles').addEventListener('pointerdown', (e) => e.stopPropagation());
+  $('styles').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    document.documentElement.dataset.style = b.dataset.s;
+    $('styles').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    fill();
+  }));
+
+  // camera: drag / swipe / arrow keys, with inertia and idle auto-pan
+  let yaw = CONFIG.start[0], pitch = CONFIG.start[1], vy = 0, drag = null, lastUser = -1e9;
+  stage.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; stage.setPointerCapture(e.pointerId); stage.classList.add('drag'); vy = 0; });
+  stage.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag = { x: e.clientX, y: e.clientY };
+    vy = -dx * CONFIG.dragSpeed; yaw += vy; pitch = Math.max(-28, Math.min(24, pitch + dy * CONFIG.dragSpeed * .7)); lastUser = performance.now();
+  });
+  const end = () => { drag = null; stage.classList.remove('drag'); lastUser = performance.now(); };
+  stage.addEventListener('pointerup', end); stage.addEventListener('pointercancel', end);
+  stage.addEventListener('keydown', (e) => {
+    const k = { ArrowLeft: [-8, 0], ArrowRight: [8, 0], ArrowUp: [0, -5], ArrowDown: [0, 5] }[e.key];
+    if (!k) return; e.preventDefault(); yaw += k[0]; pitch = Math.max(-28, Math.min(24, pitch + k[1])); lastUser = performance.now();
+  });
+
+  let P = 700;
+  const fit = () => { P = Math.max(420, stage.clientWidth * CONFIG.fov); stage.style.perspective = P + 'px'; };
+  addEventListener('resize', fit); fit();
+
+  // which hotspot is closest to the centre of view (for the idle tour)
+  const facing = () => {
+    let best = -1, min = 30;
+    ITEMS.forEach((it, i) => {
+      const r = yaw * Math.PI / 180, [x, , z] = it.at;
+      const zc = z - CONFIG.eye, xr = x * Math.cos(r) + zc * Math.sin(r), zr = -x * Math.sin(r) + zc * Math.cos(r);
+      const a = Math.abs(Math.atan2(xr, -zr) * 180 / Math.PI);
+      if (a < min) { min = a; best = i; }
+    });
+    return best;
+  };
+
+  // on phones the card would sit over the intro copy, so the idle tour never auto-opens it there
+  const small = matchMedia('(max-width: 520px)');
+  let raf = 0, last = 0, firstCard = 900;
+  const frame = (now) => {
+    const dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
+    if (!drag) {
+      if (Math.abs(vy) > .01) { yaw += vy; vy *= .93; }
+      if (now - lastUser > CONFIG.idleAfter && !reduced.matches) {
+        yaw += CONFIG.pan * dt; pitch += (CONFIG.start[1] - pitch) * .02;
+        const f = facing();
+        if (now > firstCard && !small.matches && f !== current && (f >= 0 || current >= 0)) open(f);
+      }
+    }
+    world.style.transform = `translateZ(${P}px) rotateX(${pitch}deg) rotateY(${yaw}deg) translateZ(${-CONFIG.eye}px)`;
+    const bill = `rotateY(${-yaw}deg) rotateX(${-pitch}deg)`;
+    ITEMS.forEach((it) => { it.el.style.transform = `translate3d(${it.at[0]}px, ${it.at[1]}px, ${it.at[2]}px) ${bill}`; });
+    raf = requestAnimationFrame(frame);
+  };
+  const start = () => { if (!raf) { last = 0; raf = requestAnimationFrame(frame); } };
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; };
+  document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+  if (reduced.matches && !small.matches) open(1);
+  start();
+
+  $('form').addEventListener('submit', (e) => { e.preventDefault(); $('ok').textContent = 'Thank you — a designer will be in touch within one working day.'; e.target.reset(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ferrum — Magnet Pins</title>
+<style>
+  /* Customise: colours and fonts below. The pin field reads --pin, --pin-hi,
+     --accent and --ground from CSS, so one edit re-themes the canvas too.
+     Pin density, physics and the wave live in CONFIG in the script. */
+  :root {
+    --bg: #0c0d10;
+    --fg: #f1efe9;
+    --muted: rgb(241 239 233 / 0.6);
+    --line: rgb(255 255 255 / 0.1);
+    --panel: rgb(255 255 255 / 0.035);
+    --accent: #ff6b2c;
+    --pin: #6d7480;
+    --pin-hi: #e9edf3;
+    --ground: #15171c;
+    --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; background: var(--bg); }
+  body { overflow-x: hidden; color: var(--fg); background: var(--bg); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 28px; }
+
+  /* Hero: the canvas fills it; copy floats above on a soft scrim. */
+  .hero { position: relative; height: max(620px, 100vh); height: max(620px, 100svh); overflow: hidden; background: radial-gradient(80% 70% at 60% 40%, #1b1e25, var(--ground) 70%); }
+  .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; cursor: crosshair; }
+  .hero::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgb(12 13 16 / 0.82), rgb(12 13 16 / 0.35) 45%, transparent 70%), linear-gradient(0deg, var(--bg), transparent 30%), linear-gradient(180deg, rgb(12 13 16 / 0.7), transparent 18%); }
+  nav.wrap { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 24px; padding-bottom: 24px; }
+  @media (max-width: 560px) { nav.wrap { padding-top: 16px; padding-bottom: 16px; } }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.18em; font-size: 14px; }
+  .logo i { width: 18px; height: 18px; border: 2px solid var(--fg); border-radius: 50%; position: relative; }
+  .logo i::after { content: ""; position: absolute; left: 50%; top: -6px; width: 2px; height: 26px; background: var(--accent); transform: translateX(-50%) rotate(35deg); }
+  .links { display: flex; gap: 32px; font-size: 14px; color: var(--muted); }
+  .links a:hover { color: var(--fg); }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 13px 22px; border: 1px solid var(--line); border-radius: 2px; font: 600 14px var(--font); color: inherit; background: rgb(12 13 16 / 0.4); cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
+  .btn:hover { border-color: var(--fg); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #140700; }
+  .btn.primary:hover { background: var(--fg); border-color: var(--fg); }
+  .copy { position: absolute; z-index: 2; left: 0; right: 0; bottom: clamp(48px, 10vh, 110px); pointer-events: none; }
+  .copy a { pointer-events: auto; }
+  .tag { display: inline-flex; align-items: center; gap: 10px; font: 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .tag::before { content: ""; width: 28px; height: 1px; background: var(--accent); }
+  h1 { margin: 20px 0 22px; max-width: 11ch; font-size: clamp(46px, 8.4vw, 128px); line-height: .92; letter-spacing: -0.05em; font-weight: 700; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lead { max-width: 30em; font-size: clamp(15px, 1.3vw, 18px); line-height: 1.6; color: var(--muted); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .coords { position: absolute; z-index: 2; right: 28px; bottom: 28px; font: 11px var(--mono); line-height: 1.7; letter-spacing: .1em; color: var(--muted); text-align: right; pointer-events: none; }
+  .coords b { color: var(--accent); font-weight: 400; }
+
+  /* Sections */
+  section { padding: 104px 0; border-top: 1px solid var(--line); }
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; margin-bottom: 48px; }
+  h2 { font-size: clamp(32px, 4.4vw, 60px); letter-spacing: -0.04em; line-height: 1; font-weight: 700; }
+  .head p { max-width: 26em; color: var(--muted); line-height: 1.6; }
+  .projects { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .project { display: block; border: 1px solid var(--line); background: var(--panel); transition: border-color .25s; }
+  .project:hover { border-color: rgb(255 107 44 / 0.6); }
+  .project svg { display: block; width: 100%; aspect-ratio: 16 / 9; background: linear-gradient(180deg, #171a20, #0f1013); }
+  .project svg .s { fill: none; stroke: var(--pin-hi); stroke-width: 1.2; opacity: .75; }
+  .project svg .a { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .project svg .g { stroke: rgb(255 255 255 / 0.06); }
+  .project > div { display: flex; justify-content: space-between; gap: 16px; padding: 20px 22px; }
+  .project h3 { font-size: 20px; letter-spacing: -0.02em; }
+  .project small { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; }
+  .project span { font: 12px var(--mono); color: var(--muted); white-space: nowrap; }
+
+  .numbers { display: grid; grid-template-columns: repeat(4, 1fr); border-left: 1px solid var(--line); }
+  .numbers div { padding: 28px 24px; border-right: 1px solid var(--line); }
+  .numbers strong { display: block; font-size: clamp(40px, 5vw, 72px); letter-spacing: -0.05em; font-weight: 700; }
+  .numbers strong sup { font-size: .4em; color: var(--accent); vertical-align: top; }
+  .numbers span { color: var(--muted); font-size: 14px; }
+
+  .team { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .person i { display: grid; place-items: end start; aspect-ratio: 4 / 5; padding: 16px; margin-bottom: 14px; font: 700 44px var(--font); font-style: normal; letter-spacing: -0.04em; color: rgb(255 255 255 / 0.85); background: repeating-linear-gradient(115deg, transparent 0 14px, rgb(255 255 255 / 0.035) 14px 15px), linear-gradient(160deg, var(--c1), #121318 80%); border: 1px solid var(--line); }
+  .person b { display: block; font-size: 17px; }
+  .person span { font-size: 14px; color: var(--muted); }
+
+  .contact { display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; }
+  .contact dl { display: grid; grid-template-columns: auto 1fr; gap: 14px 28px; margin-top: 32px; font-size: 15px; }
+  .contact dt { font: 12px var(--mono); letter-spacing: .1em; color: var(--muted); padding-top: 3px; }
+  form { display: grid; gap: 14px; }
+  input, textarea, select { width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 2px; background: var(--panel); color: var(--fg); font: 15px var(--font); }
+  textarea { min-height: 120px; resize: vertical; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .note { min-height: 1.2em; font-size: 14px; color: var(--accent); }
+  footer { padding: 32px 0 44px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 900px) {
+    .links { display: none; }
+    .projects { grid-template-columns: 1fr; }
+    .numbers { grid-template-columns: repeat(2, 1fr); border-top: 1px solid var(--line); }
+    .numbers div { border-bottom: 1px solid var(--line); }
+    .team { grid-template-columns: repeat(2, 1fr); }
+    .contact { grid-template-columns: 1fr; gap: 40px; }
+    .coords { display: none; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 0 16px; }
+    nav .btn { padding: 10px 14px; font-size: 13px; }
+    .hero::after { background: linear-gradient(0deg, var(--bg) 4%, rgb(12 13 16 / 0.7) 40%, transparent 70%), linear-gradient(180deg, rgb(12 13 16 / 0.7), transparent 18%); }
+    section { padding: 72px 0; }
+    .team { gap: 16px; }
+    .person i { font-size: 32px; }
+    .numbers div { padding: 22px 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .btn, .project { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <header class="hero" id="top">
+    <canvas id="field" aria-label="A field of steel pins that lean toward your pointer like iron filings near a magnet"></canvas>
+    <nav class="wrap">
+      <a class="logo" href="#top"><i></i>FERRUM</a>
+      <div class="links">
+        <a href="#projects">Projects</a>
+        <a href="#practice">Practice</a>
+        <a href="#team">Team</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <a class="btn" href="#contact">Start a project</a>
+    </nav>
+    <div class="copy">
+      <div class="wrap">
+        <span class="tag">Architecture &amp; engineering</span>
+        <h1>We design the <em>forces</em> you never see.</h1>
+        <p class="lead">Ferrum is a 60-person studio of architects and engineers shaping towers, bridges and civic spaces that carry their loads with uncommon grace.</p>
+        <div class="ctas">
+          <a class="btn primary" href="#projects">See our work →</a>
+          <a class="btn" href="#practice">Our practice</a>
+        </div>
+      </div>
+    </div>
+    <div class="coords" aria-hidden="true">FIELD · <b id="count">0</b> PINS<br>MOVE TO ATTRACT · TAP TO PULSE</div>
+  </header>
+
+  <section id="projects">
+    <div class="wrap">
+      <div class="head">
+        <h2>Selected projects</h2>
+        <p>Each structure starts as a diagram of forces. We keep drawing until the building and the diagram are the same thing.</p>
+      </div>
+      <div class="projects">
+        <a class="project" href="#contact">
+          <svg viewBox="0 0 320 180" aria-hidden="true">
+            <path class="g" d="M0 150 H320 M40 0 V180 M80 0 V180 M120 0 V180 M160 0 V180 M200 0 V180 M240 0 V180 M280 0 V180"/>
+            <path class="s" d="M136 150 V40 L160 22 L184 40 V150 M136 64 H184 M136 88 H184 M136 112 H184 M136 136 H184"/>
+            <path class="a" d="M136 150 L184 40 M184 150 L136 40"/>
+            <path class="s" d="M70 150 V96 H112 V150 M208 150 V110 H250 V150"/>
+          </svg>
+          <div><div><h3>Halcyon Tower</h3><small>212 m diagrid residential tower, Rotterdam</small></div><span>2025 · 01</span></div>
+        </a>
+        <a class="project" href="#contact">
+          <svg viewBox="0 0 320 180" aria-hidden="true">
+            <path class="g" d="M0 130 H320"/>
+            <path class="s" d="M20 130 H300 M90 130 V40 M230 130 V40 M90 40 L30 130 M90 40 L60 130 M90 40 L120 130 M90 40 L150 130 M230 40 L170 130 M230 40 L200 130 M230 40 L260 130 M230 40 L290 130"/>
+            <path class="a" d="M20 130 Q 160 168 300 130"/>
+          </svg>
+          <div><div><h3>Lumen Crossing</h3><small>Cable-stayed footbridge, 340 m span, Lisbon</small></div><span>2024 · 02</span></div>
+        </a>
+        <a class="project" href="#contact">
+          <svg viewBox="0 0 320 180" aria-hidden="true">
+            <path class="g" d="M0 140 H320"/>
+            <path class="s" d="M60 140 Q 160 20 260 140 M80 140 Q 160 50 240 140 M100 140 Q 160 80 220 140 M60 140 L100 140 M220 140 L260 140"/>
+            <path class="a" d="M40 140 Q 160 -10 280 140"/>
+          </svg>
+          <div><div><h3>Thermal Pavilion</h3><small>Timber gridshell over public baths, Oslo</small></div><span>2024 · 03</span></div>
+        </a>
+        <a class="project" href="#contact">
+          <svg viewBox="0 0 320 180" aria-hidden="true">
+            <path class="g" d="M0 150 H320"/>
+            <ellipse class="s" cx="160" cy="112" rx="130" ry="38"/><ellipse class="s" cx="160" cy="112" rx="90" ry="24"/>
+            <path class="s" d="M30 112 V150 M290 112 V150 M70 140 V150 M250 140 V150"/>
+            <path class="a" d="M30 112 Q 160 30 290 112"/>
+          </svg>
+          <div><div><h3>Meridian Arena</h3><small>18,000-seat stadium with tensile roof, Bilbao</small></div><span>2023 · 04</span></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="practice">
+    <div class="wrap">
+      <div class="head">
+        <h2>The practice, in numbers</h2>
+        <p>Architects and engineers in one room since 2004 — so the structure is never an afterthought.</p>
+      </div>
+      <div class="numbers">
+        <div><strong>140<sup>+</sup></strong><span>built projects</span></div>
+        <div><strong>22</strong><span>countries</span></div>
+        <div><strong>38<sup>%</sup></strong><span>less embodied carbon on average</span></div>
+        <div><strong>17</strong><span>international awards</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="team">
+    <div class="wrap">
+      <div class="head">
+        <h2>Partners</h2>
+        <p>Four partners, one studio table. Every project has a partner on it from first sketch to handover.</p>
+      </div>
+      <div class="team">
+        <div class="person"><i style="--c1:#5a3420">IV</i><b>Ilse Vandermeer</b><span>Founding partner, architecture</span></div>
+        <div class="person"><i style="--c1:#2c3a52">TO</i><b>Tomás Okafor</b><span>Partner, structural engineering</span></div>
+        <div class="person"><i style="--c1:#3a4a3a">MH</i><b>Mira Haldane</b><span>Partner, computation</span></div>
+        <div class="person"><i style="--c1:#4a3448">KS</i><b>Kenji Sato</b><span>Partner, facades &amp; materials</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="wrap contact">
+      <div>
+        <h2>Bring us the hard site.</h2>
+        <p class="lead" style="margin-top: 18px">Tell us about the brief, the constraints and the ambition. A partner replies within two working days.</p>
+        <dl>
+          <dt>STUDIO</dt><dd>Wilhelminakade 91, Rotterdam</dd>
+          <dt>EMAIL</dt><dd>studio@ferrum.example</dd>
+          <dt>PHONE</dt><dd>+31 10 000 0000</dd>
+        </dl>
+      </div>
+      <form id="form">
+        <input required placeholder="Your name" aria-label="Your name">
+        <input type="email" required placeholder="Email" aria-label="Email">
+        <select aria-label="Project type"><option>Building</option><option>Bridge or infrastructure</option><option>Masterplan</option><option>Structural review</option></select>
+        <textarea placeholder="Tell us about the project" aria-label="Project details"></textarea>
+        <button class="btn primary" type="submit">Send enquiry →</button>
+        <p class="note" id="note"></p>
+      </form>
+    </div>
+  </section>
+
+  <div class="wrap"><footer><span>© 2026 Ferrum Studio B.V.</span><a href="#top">Back to top ↑</a></footer></div>
+
+<script>
+(() => {
+  const CONFIG = {
+    spacingPx: [24, 28],  // on-screen pin spacing (px) for the front rows: [phone, desktop]
+    maxPins: 2600,        // hard cap; spacing grows to stay under it
+    pinHeight: 1.7,       // rod length, in grid units
+    pitch: [0.92, 1.15],  // camera tilt down toward the field (radians): [landscape, portrait]
+    magnetStrength: 1.05, // how far pins lean toward the pointer (grid units)
+    magnetRadius: 5.5,    // field falloff distance (grid units)
+    stiffness: 0.06,      // spring pull toward the target lean
+    damping: 0.86,        // velocity kept per frame
+    waveAmp: 0.38,        // idle wave lean
+    waveSpeed: 0.0016,    // idle wave speed
+    shockSpeed: 0.028,    // shockwave ring growth (grid units per ms)
+    shockForce: 0.16,     // shockwave kick
+    light: [-0.55, 0.75, 0.38] // light direction (x, y, z)
+  };
+
+  const canvas = document.getElementById('field');
+  const ctx = canvas.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  const rgb = name => {
+    let h = css.getPropertyValue(name).trim().replace('#', '');
+    if (h.length === 3) h = h.replace(/./g, c => c + c);
+    const n = parseInt(h, 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  };
+  const PIN = rgb('--pin'), HI = rgb('--pin-hi'), ACC = rgb('--accent');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const L = (() => { const [x, y, z] = CONFIG.light, m = Math.hypot(x, y, z); return [x / m, y / m, z / m]; })();
+  const mix = (a, b, t) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`;
+
+  // Shade palettes, precomputed so the draw loop does no string building.
+  const SHADES = 24;
+  const steel = [], steelHi = [], hot = [];
+  for (let i = 0; i < SHADES; i++) {
+    const t = i / (SHADES - 1);
+    steel.push(mix([18, 20, 24], PIN, t));
+    steelHi.push(mix(PIN, HI, t));
+    hot.push(mix(PIN, ACC, t));
+  }
+
+  // Sphere-head sprites (steel and hot), drawn once.
+  const sprite = (c1, c2) => {
+    const s = document.createElement('canvas'); s.width = s.height = 64;
+    const g = s.getContext('2d'), gr = g.createRadialGradient(24, 22, 2, 32, 32, 31);
+    gr.addColorStop(0, '#fff'); gr.addColorStop(0.25, c1); gr.addColorStop(1, c2);
+    g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 31, 0, 7); g.fill();
+    return s;
+  };
+  const CAP = sprite(mix(PIN, HI, 0.6), 'rgb(20,22,26)');
+  const CAP_HOT = sprite(mix(ACC, [255, 255, 255], 0.25), mix(ACC, [0, 0, 0], 0.7));
+
+  // ---- Camera: fixed pitch, slow yaw drift, perspective divide ----
+  let W = 0, H = 0, dpr = 1, F = 1, D = 30, cx = 0, cy = 0, yaw = 0, cyw = 1, syw = 0;
+  let cp = 1, spch = 0;
+  const out = [0, 0, 0];
+  const project = (x, y, z) => {
+    const xr = x * cyw - z * syw, zr = x * syw + z * cyw;
+    const yc = y * cp - zr * spch, zc = D - (y * spch + zr * cp);
+    out[0] = cx + xr * F / zc; out[1] = cy - yc * F / zc; out[2] = zc;
+    return out;
+  };
+  // Screen point → ground plane (y = h) in world units.
+  const unproject = (sx, sy, h) => {
+    const xc = (sx - cx) / F, yc = -(sy - cy) / F;
+    const t = (h - D * spch) / (yc * cp - spch);
+    const xr = t * xc, zr = D * cp + t * (-yc * spch - cp);
+    return [xr * cyw + zr * syw, -xr * syw + zr * cyw];
+  };
+
+  // ---- Pins: positions plus spring state, in flat typed arrays ----
+  let N = 0, bx, bz, lx, lz, vx, vz, uy, vy, heat, order, depth;
+  const build = () => {
+    const base = W < 640 ? CONFIG.spacingPx[0] : CONFIG.spacingPx[1];
+    let px = base, pts;
+    do {
+      F = px * D;                          // px per grid unit at the focus depth
+      yaw = 0; cyw = 1; syw = 0;
+      pts = [];
+      const X = Math.ceil(W / px * 1.3), Z = Math.ceil(H / px * 1.9);
+      for (let z = -Z; z <= Z; z++) for (let x = -X; x <= X; x++) {
+        const p = project(x, 0, z);
+        if (p[2] < 4 || p[2] > D * 2.1) continue;
+        if (p[0] < -60 || p[0] > W + 60 || p[1] < -30 || p[1] > H + 140) continue;
+        pts.push(x, z);
+      }
+      px *= 1.12;
+    } while (pts.length / 2 > CONFIG.maxPins);
+    N = pts.length / 2;
+    const A = () => new Float32Array(N);
+    bx = A(); bz = A(); lx = A(); lz = A(); vx = A(); vz = A(); uy = A(); vy = A(); heat = A(); depth = A();
+    order = new Uint16Array(N);
+    for (let i = 0; i < N; i++) { bx[i] = pts[i * 2]; bz[i] = pts[i * 2 + 1]; order[i] = i; }
+    document.getElementById('count').textContent = N.toLocaleString('en-US');
+  };
+
+  let builtW = 0, builtH = 0;
+  const resize = () => {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    const b = canvas.getBoundingClientRect();
+    if (!b.width) return;
+    W = b.width; H = b.height;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const pitch = CONFIG.pitch[W < H ? 1 : 0];
+    cp = Math.cos(pitch); spch = Math.sin(pitch);
+    cx = W * (W < 900 ? 0.5 : 0.62); cy = H * (W < H ? 0.4 : 0.5);
+    // Rebuild the grid only on real size changes (not a mobile URL bar).
+    if (W !== builtW || Math.abs(H - builtH) > 120) { builtW = W; builtH = H; build(); }
+  };
+
+  // ---- Input: pointer magnet, idle wander, tap shockwave ----
+  let mag = { x: 0, z: 0, s: 0, target: 0 }, lastMove = -1e9;
+  const shocks = [];
+  addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch') return;
+    const b = canvas.getBoundingClientRect();
+    if (e.clientY > b.bottom) return;
+    [mag.x, mag.z] = unproject(e.clientX - b.left, e.clientY - b.top, CONFIG.pinHeight * 0.6);
+    lastMove = performance.now();
+    if (reduced) still();
+  });
+  canvas.addEventListener('pointerdown', e => {
+    const b = canvas.getBoundingClientRect();
+    const [x, z] = unproject(e.clientX - b.left, e.clientY - b.top, 0);
+    shocks.push({ x, z, t: performance.now() });
+    if (shocks.length > 4) shocks.shift();
+    if (e.pointerType === 'touch') { mag.x = x; mag.z = z; lastMove = performance.now(); }
+  });
+
+  // ---- Simulation ----
+  const step = (now, dt) => {
+    const idle = now - lastMove > 2500;
+    if (idle) {
+      // A virtual magnet wanders on its own so the field is never still.
+      const [ix, iz] = unproject(cx + Math.sin(now / 3100) * W * 0.22, H * (W < 900 ? 0.32 : 0.5) + Math.sin(now / 2300 + 1) * H * 0.16, 1);
+      mag.x += (ix - mag.x) * 0.05 * dt; mag.z += (iz - mag.z) * 0.05 * dt;
+    }
+    mag.s += ((idle ? 0.75 : 1) - mag.s) * 0.04 * dt;
+    yaw = reduced ? -0.1 : Math.sin(now / 9000) * 0.08 - 0.1;
+    cyw = Math.cos(yaw); syw = Math.sin(yaw);
+
+    const R2 = CONFIG.magnetRadius ** 2, M = CONFIG.magnetStrength * mag.s;
+    const ph = now * CONFIG.waveSpeed, k = CONFIG.stiffness, damp = Math.pow(CONFIG.damping, dt);
+    for (let s = shocks.length - 1; s >= 0; s--) if ((now - shocks[s].t) * CONFIG.shockSpeed > 60) shocks.splice(s, 1);
+
+    for (let i = 0; i < N; i++) {
+      const x = bx[i], z = bz[i];
+      // Magnet: lean along the field line, strongest near the pole.
+      let dx = mag.x - x, dz = mag.z - z;
+      const r2 = dx * dx + dz * dz, r = Math.sqrt(r2) + 1e-4;
+      const f = M * (r / (r + 0.8)) * R2 / (r2 + R2);
+      let tx = dx / r * f, tz = dz / r * f;
+      // Idle wave: a diagonal swell rolling through the grid.
+      const w = Math.sin(x * 0.32 + z * 0.22 - ph * 2.2) * CONFIG.waveAmp;
+      tx += w * 0.55; tz += w * 0.8;
+      let lift = Math.max(0, w) * 0.25;
+      // Shockwaves: a ring that kicks pins outward and pops them up.
+      for (const sh of shocks) {
+        const sx = x - sh.x, sz = z - sh.z, d = Math.sqrt(sx * sx + sz * sz) + 1e-4;
+        const age = now - sh.t, ring = age * CONFIG.shockSpeed, band = 1 - Math.abs(d - ring) / 2.2;
+        if (band > 0) {
+          const amp = band * CONFIG.shockForce * Math.max(0, 1 - age / 2400) * dt;
+          vx[i] += sx / d * amp; vz[i] += sz / d * amp; vy[i] += amp * 0.9;
+        }
+      }
+      vx[i] = (vx[i] + (tx - lx[i]) * k * dt) * damp; lx[i] += vx[i] * dt;
+      vz[i] = (vz[i] + (tz - lz[i]) * k * dt) * damp; lz[i] += vz[i] * dt;
+      vy[i] = (vy[i] + (lift - uy[i]) * k * dt) * damp; uy[i] += vy[i] * dt;
+      heat[i] = Math.min(1, f / (CONFIG.magnetStrength * 0.75));
+    }
+  };
+
+  // Snap straight to the targets (reduced motion).
+  const settle = now => { for (let n = 0; n < 160; n++) step(now, 1); };
+
+  // ---- Render ----
+  const draw = () => {
+    ctx.clearRect(0, 0, W, H);
+    const h = CONFIG.pinHeight, maxLean = h * 0.85;
+    // Depth sort: far pins first (painter's algorithm).
+    for (let i = 0; i < N; i++) depth[i] = project(bx[i], 0, bz[i])[2];
+    order.sort((a, b) => depth[b] - depth[a]);
+
+    // Pass 1: all shadows in one path (cast away from the light on the ground).
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.42)';
+    ctx.lineWidth = Math.max(1.5, F / D * 0.13);
+    ctx.beginPath();
+    const sk = h / L[1];
+    for (let i = 0; i < N; i++) {
+      const p = project(bx[i], 0, bz[i]), x0 = p[0], y0 = p[1];
+      const q = project(bx[i] + lx[i] - L[0] * sk * 0.55, 0, bz[i] + lz[i] - L[2] * sk * 0.55);
+      ctx.moveTo(x0, y0); ctx.lineTo(q[0], q[1]);
+    }
+    ctx.stroke();
+
+    // Pass 2: rods + heads, back to front.
+    for (let n = 0; n < N; n++) {
+      const i = order[n];
+      let ax = lx[i], az = lz[i];
+      const m = Math.hypot(ax, az);
+      if (m > maxLean) { ax *= maxLean / m; az *= maxLean / m; }
+      const ay = Math.sqrt(h * h - ax * ax - az * az);
+      const b = project(bx[i], uy[i], bz[i]), x0 = b[0], y0 = b[1], zc = b[2];
+      const t = project(bx[i] + ax, uy[i] + ay, bz[i] + az), x1 = t[0], y1 = t[1];
+      if (x1 < -20 || x1 > W + 20 || y1 > H + 40) continue;
+      const s = F / zc;                                   // px per unit at this depth
+      const fog = Math.min(1, Math.max(0.12, 1.5 - zc / D * 0.75));
+      // Cylinder shading: brightest when the rod is perpendicular to the light.
+      const d = (ax * L[0] + ay * L[1] + az * L[2]) / h;
+      const lit = Math.sqrt(Math.max(0, 1 - d * d)) * fog;
+      const si = Math.min(SHADES - 1, Math.round(lit * (SHADES - 1)));
+      const ht = heat[i];
+      ctx.lineWidth = s * 0.11;
+      ctx.strokeStyle = ht > 0.35 ? hot[Math.min(SHADES - 1, Math.round(ht * fog * (SHADES - 1)))] : steel[si];
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      // Specular streak along the lit side.
+      ctx.lineWidth = s * 0.035;
+      ctx.strokeStyle = steelHi[si];
+      const o = s * 0.025;
+      ctx.beginPath(); ctx.moveTo(x0 - o, y0 - o * 0.3); ctx.lineTo(x1 - o, y1 - o * 0.3); ctx.stroke();
+      // Head.
+      const r = s * 0.17;
+      ctx.globalAlpha = fog;
+      ctx.drawImage(CAP, x1 - r, y1 - r, r * 2, r * 2);
+      if (ht > 0.05) { ctx.globalAlpha = fog * ht; ctx.drawImage(CAP_HOT, x1 - r, y1 - r, r * 2, r * 2); }
+      ctx.globalAlpha = 1;
+    }
+
+    // Shockwave rings on the ground.
+    const now = performance.now();
+    for (const sh of shocks) {
+      const age = now - sh.t, ring = age * CONFIG.shockSpeed, a = Math.max(0, 1 - age / 1800);
+      if (a <= 0) continue;
+      ctx.strokeStyle = `rgba(${ACC.join(',')},${a * 0.5})`; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let k = 0; k <= 48; k++) {
+        const ang = k / 48 * Math.PI * 2, p = project(sh.x + Math.cos(ang) * ring, 0, sh.z + Math.sin(ang) * ring);
+        k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+      }
+      ctx.stroke();
+    }
+  };
+
+  // ---- Loop: runs only while the hero is on screen and the tab is visible ----
+  let raf = 0, last = 0, onScreen = true;
+  const frame = now => {
+    const dt = Math.min(3, (now - (last || now)) / 16.67); last = now;
+    step(now, dt); draw();
+    raf = requestAnimationFrame(frame);
+  };
+  const toggle = () => {
+    cancelAnimationFrame(raf); raf = 0; last = 0;
+    if (onScreen && !document.hidden) raf = requestAnimationFrame(frame);
+  };
+  let pending = 0;
+  function still() {
+    if (pending) return;
+    pending = requestAnimationFrame(() => { pending = 0; const t = 4000; settle(t); draw(); });
+  }
+
+  resize();
+  new ResizeObserver(() => { resize(); if (reduced) still(); }).observe(canvas);
+  if (reduced) {
+    still();
+  } else {
+    // Seed with a settled frame so the very first paint already looks alive.
+    settle(performance.now()); draw();
+    new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; toggle(); }).observe(canvas);
+    document.addEventListener('visibilitychange', toggle);
+  }
+
+  document.getElementById('form').addEventListener('submit', e => {
+    e.preventDefault();
+    document.getElementById('note').textContent = 'Thank you — a partner will reply within two working days.';
+    e.target.reset();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOVA Film Festival — Zoom Through</title>
+<!--
+  Customise: colours live in :root. The headline word is drawn as SVG paths in
+  #glyphs (so it renders identically everywhere); the camera zooms into the
+  counter of the O, whose centre and radii are in GLYPH. The sunset behind it
+  is painted on a canvas each frame; its colours are the SKY stops in CONFIG.
+  The lineup and passes are plain HTML below.
+-->
+<style>
+  :root {
+    --ink: #0b0810;
+    --ink-2: #140f1b;
+    --fg: #fbf3ea;
+    --muted: rgb(251 243 234 / 0.62);
+    --line: rgb(251 243 234 / 0.12);
+    --gold: #ffc66b;
+    --coral: #ff6a4d;
+    --rose: #e94b7a;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--ink); color: var(--fg); font-family: var(--font); line-height: 1.5; overflow-x: clip; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(1180px, 100% - 40px); margin-inline: auto; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 22px; border-radius: 999px; font-weight: 600; font-size: 0.95rem; transition: transform 0.2s, background 0.2s; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-main { background: var(--gold); color: #24130a; box-shadow: 0 10px 34px rgb(255 198 107 / 0.3); }
+  .btn-ghost { border: 1px solid var(--line); background: rgb(255 255 255 / 0.05); backdrop-filter: blur(6px); }
+  .eyebrow { font: 600 0.72rem var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); }
+
+  nav { position: absolute; inset: 0 0 auto; z-index: 30; padding: 20px 0; }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { display: flex; align-items: center; gap: 10px; font: 700 1rem var(--mono); letter-spacing: 0.3em; }
+  .logo i { width: 22px; height: 22px; border-radius: 50%; border: 5px solid var(--gold); box-shadow: 0 0 14px rgb(255 198 107 / 0.5); }
+  .links { display: flex; gap: 28px; font-size: 0.9rem; color: var(--muted); }
+  .links a:hover { color: var(--fg); }
+  nav .btn { padding: 9px 18px; font-size: 0.86rem; }
+
+  /* Pinned zoom: .stage sticks while .reel scrolls past it */
+  .reel { position: relative; height: 340vh; }
+  .stage { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; background: var(--ink); }
+  .stage > * { position: absolute; }
+  #sky { inset: 0; width: 100%; height: 100%; display: block; }
+  .dim { inset: 0; background: radial-gradient(60% 60% at 50% 48%, rgb(20 8 30 / 0.55), rgb(8 4 14 / 0.9)); opacity: 0; pointer-events: none; }
+  #mask { inset: 0; width: 100%; height: 100%; display: block; }
+  #mask .outline { fill: none; stroke: var(--gold); stroke-width: 1.2; stroke-opacity: 0.55; }
+  /* Light leaks + grain sit above everything for the "shot on film" look */
+  .leak { width: 70vmax; height: 70vmax; border-radius: 50%; mix-blend-mode: screen; pointer-events: none; filter: blur(30px); opacity: 0.32; }
+  .leak.a { left: -28vmax; top: -30vmax; background: radial-gradient(closest-side, #ff5a36, rgb(255 90 54 / 0)); animation: leakA 9s ease-in-out infinite alternate; }
+  .leak.b { right: -32vmax; bottom: -36vmax; background: radial-gradient(closest-side, #ffb04a, rgb(255 176 74 / 0)); animation: leakB 11s ease-in-out infinite alternate; }
+  @keyframes leakA { to { transform: translate(12vmax, 8vmax) scale(1.2); opacity: 0.18; } }
+  @keyframes leakB { to { transform: translate(-10vmax, -6vmax) scale(0.85); opacity: 0.42; } }
+  .grain { inset: -50%; width: 200%; height: 200%; pointer-events: none; opacity: 0.13; mix-blend-mode: overlay; animation: grain 0.6s steps(6) infinite; }
+  @keyframes grain { 0% { transform: translate(0, 0); } 20% { transform: translate(-7%, 4%); } 40% { transform: translate(5%, -6%); } 60% { transform: translate(-3%, 8%); } 80% { transform: translate(8%, 2%); } 100% { transform: translate(-5%, -3%); } }
+  .bars { inset: 0; pointer-events: none; }
+  .bars::before, .bars::after { content: ""; position: absolute; left: 0; right: 0; height: 9vh; background: #000; transform: scaleY(var(--lb, 0)); }
+  .bars::before { top: 0; transform-origin: top; }
+  .bars::after { bottom: 0; transform-origin: bottom; }
+  /* Letterbox bars only on landscape screens; on portrait phones the scene stays full-bleed */
+  @media (max-aspect-ratio: 1/1) { .bars { display: none; } }
+
+  /* Hero copy, positioned around the word (JS sets --wy and --wh) */
+  .over { left: 0; right: 0; text-align: center; padding: 0 20px; will-change: opacity, transform; }
+  .over.top { top: calc(var(--wy, 47vh) - var(--wh, 140px) - 56px); }
+  .over.bottom { top: calc(var(--wy, 47vh) + var(--wh, 140px) + 34px); }
+  .over.top .eyebrow { display: inline-flex; gap: 14px; align-items: center; }
+  .over.top .eyebrow::before, .over.top .eyebrow::after { content: ""; width: 34px; height: 1px; background: currentColor; opacity: 0.6; }
+  .over p { color: var(--muted); max-width: 34rem; margin: 0 auto 24px; font-size: clamp(0.98rem, 1.5vw, 1.12rem); }
+  .over p b { color: var(--fg); font-weight: 600; }
+  .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .cue { left: 50%; bottom: 26px; transform: translateX(-50%); font: 600 0.66rem var(--mono); letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); display: grid; justify-items: center; gap: 10px; }
+  .cue::after { content: ""; width: 1px; height: 38px; background: linear-gradient(var(--gold), transparent); animation: cue 1.8s ease-in-out infinite; transform-origin: top; }
+  @keyframes cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+
+  /* Revealed once the scene fills the screen */
+  .reveal { inset: 0; display: grid; place-content: center; text-align: center; padding: 0 20px; opacity: 0; pointer-events: none; }
+  .reveal.on { pointer-events: auto; }
+  .reveal h2 { font: 500 clamp(2.6rem, 7.4vw, 6.2rem)/0.98 var(--serif); letter-spacing: -0.02em; margin: 18px 0 22px; text-shadow: 0 6px 40px rgb(0 0 0 / 0.45); }
+  .reveal h2 em { color: var(--gold); }
+  .facts { display: flex; justify-content: center; gap: clamp(22px, 6vw, 70px); margin-bottom: 32px; flex-wrap: wrap; }
+  .facts div { font-size: 0.8rem; color: var(--muted); }
+  .facts strong { display: block; font: 500 clamp(1.8rem, 3.4vw, 2.6rem)/1.1 var(--serif); color: var(--fg); }
+
+  /* Programme */
+  section.block { padding: clamp(80px, 11vw, 130px) 0; }
+  .head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; margin-bottom: 36px; }
+  .head h2 { font: 500 clamp(2.2rem, 5vw, 3.8rem)/1 var(--serif); letter-spacing: -0.02em; margin-top: 14px; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabs button { font: 500 0.85rem var(--font); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 8px 15px; cursor: pointer; transition: all 0.2s; }
+  .tabs button[aria-pressed="true"] { color: #24130a; background: var(--gold); border-color: var(--gold); }
+  .films { list-style: none; border-top: 1px solid var(--line); }
+  .film { display: grid; grid-template-columns: 92px 64px minmax(0, 1fr) minmax(0, 220px) 120px; gap: 22px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--line); transition: background 0.25s, opacity 0.3s; }
+  .film:hover { background: linear-gradient(90deg, transparent, rgb(255 198 107 / 0.05), transparent); }
+  .film[hidden] { display: none; }
+  .when { font: 600 0.78rem var(--mono); letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+  .when b { display: block; font: 500 1.6rem/1 var(--serif); color: var(--fg); letter-spacing: 0; margin-bottom: 4px; }
+  .poster { aspect-ratio: 3 / 4; border-radius: 8px; position: relative; overflow: hidden; box-shadow: 0 10px 24px -10px #000;
+    background: radial-gradient(circle at 50% 62%, hsl(var(--h) 95% 70%) 0 16%, transparent 17%), linear-gradient(hsl(var(--h) 60% 22%), hsl(calc(var(--h) + 30) 80% 55%) 70%, hsl(var(--h) 40% 12%) 71%); }
+  .poster::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgb(0 0 0 / 0.12) 0 1px, transparent 1px 3px); }
+  .film h3 { font: 500 1.35rem/1.15 var(--serif); }
+  .film h3 + p { color: var(--muted); font-size: 0.86rem; }
+  .venue { font-size: 0.88rem; }
+  .venue small { display: block; color: var(--muted); font-size: 0.78rem; }
+  .badge { justify-self: end; font: 600 0.66rem var(--mono); letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .badge.hot { color: var(--gold); border-color: rgb(255 198 107 / 0.5); }
+  .badge.night { color: #c9a7ff; border-color: rgb(201 167 255 / 0.4); }
+
+  /* Passes */
+  .passes { background: radial-gradient(60% 50% at 50% 0%, rgb(233 75 122 / 0.14), transparent 70%), var(--ink-2); }
+  .tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
+  .tier { position: relative; padding: 28px 26px; border-radius: 22px; border: 1px solid var(--line); background: rgb(255 255 255 / 0.03); display: flex; flex-direction: column; gap: 14px; }
+  .tier.pick { background: linear-gradient(165deg, rgb(255 198 107 / 0.16), rgb(233 75 122 / 0.08) 50%, transparent), var(--ink); border-color: rgb(255 198 107 / 0.45); box-shadow: 0 30px 70px -30px rgb(255 106 77 / 0.5); }
+  .tier.pick::before { content: "Most loved"; position: absolute; top: -11px; left: 26px; font: 600 0.64rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; background: var(--gold); color: #24130a; padding: 4px 10px; border-radius: 999px; }
+  .tier h3 { font: 500 1.5rem var(--serif); }
+  .price { font: 500 2.8rem/1 var(--serif); }
+  .price small { font: 400 0.85rem var(--font); color: var(--muted); margin-left: 6px; }
+  .tier ul { list-style: none; display: grid; gap: 9px; font-size: 0.9rem; color: var(--muted); flex: 1; }
+  .tier li::before { content: "✦"; color: var(--gold); margin-right: 10px; font-size: 0.75rem; }
+  .tier .btn { width: 100%; }
+  footer { border-top: 1px solid var(--line); padding: 30px 0 38px; font-size: 0.84rem; color: var(--muted); }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; align-items: center; }
+  footer nav { position: static; padding: 0; display: flex; gap: 20px; flex-wrap: wrap; }
+
+  @media (max-width: 900px) {
+    .film { grid-template-columns: 70px 52px minmax(0, 1fr); gap: 6px 16px; }
+    .venue { grid-column: 3; }
+    .badge { grid-column: 3; justify-self: start; }
+    .poster { grid-row: span 3; align-self: start; }
+    .when { grid-row: span 3; align-self: start; }
+    .tiers { grid-template-columns: minmax(0, 1fr); max-width: 460px; }
+  }
+  @media (max-width: 720px) {
+    .links { display: none; }
+    .over.bottom { top: calc(var(--wy) + var(--wh) + 26px); }
+    .over.top .eyebrow { letter-spacing: 0.14em; font-size: 0.66rem; }
+    .over.top .eyebrow::before, .over.top .eyebrow::after { display: none; }
+    .facts { gap: 18px 28px; }
+  }
+
+  /* Reduced motion: no pin, no zoom: the masked title sits still over one frame */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reel { height: auto !important; }
+    .stage { position: relative; }
+    .reveal, .cue { display: none; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a href="#top" class="logo"><i></i>NOVA</a>
+    <div class="links"><a href="#programme">Programme</a><a href="#passes">Passes</a><a href="#venues">Venues</a></div>
+    <a href="#passes" class="btn btn-main">Get a pass</a>
+  </div>
+</nav>
+
+<section class="reel" id="top" aria-label="NOVA Film Festival">
+  <div class="stage">
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <div class="dim"></div>
+    <svg id="mask" aria-hidden="true">
+      <defs>
+        <!-- The word, drawn as geometric paths. Units: cap height = 400. -->
+        <path id="glyphs" d="M0 400V0h112l118 222V0h110v400H230L112 178v222ZM370 200a210 210 0 1 0 420 0a210 210 0 1 0-420 0ZM818 0h116l86 268L1106 0h116l-142 400H960ZM1240 400 1380 0h120l140 400h-116l-24-78h-140l-24 78Zm164-170h72l-36-118Z"/>
+        <radialGradient id="vig" cx="50%" cy="46%" r="72%"><stop offset="0.4" stop-color="#140f1b"/><stop offset="1" stop-color="#050307"/></radialGradient>
+      </defs>
+      <!-- One even-odd path: screen-sized rect with the letters (and the O's iris) punched out -->
+      <g id="cutWord"><path id="cut" fill="url(#vig)" fill-rule="evenodd"/></g>
+      <g id="lineWord" class="outline"><use href="#glyphs"/><circle id="irisLine" cx="580" cy="200" r="100"/></g>
+    </svg>
+
+    <div class="over top"><span class="eyebrow">26th edition · Porto · 15–25 Oct 2026</span></div>
+    <div class="over bottom">
+      <p>Eleven nights of <b>world premieres</b>, midnight oddities and restored classics, in six of the city's oldest cinemas.</p>
+      <div class="ctas"><a href="#programme" class="btn btn-main">See the programme</a><a href="#passes" class="btn btn-ghost">Passes from €16</a></div>
+    </div>
+    <div class="cue">Scroll to enter</div>
+
+    <div class="reveal">
+      <span class="eyebrow">The 2026 programme</span>
+      <h2>Eleven nights<br><em>in the dark.</em></h2>
+      <div class="facts">
+        <div><strong>64</strong>feature films</div>
+        <div><strong>23</strong>world premieres</div>
+        <div><strong>6</strong>historic venues</div>
+      </div>
+      <div class="ctas"><a href="#programme" class="btn btn-main">Browse the lineup ↓</a></div>
+    </div>
+
+    <div class="leak a"></div><div class="leak b"></div>
+    <div class="bars"></div>
+    <canvas class="grain" aria-hidden="true"></canvas>
+  </div>
+</section>
+
+<section class="block" id="programme">
+  <div class="wrap">
+    <div class="head">
+      <div><span class="eyebrow">Lineup · highlights</span><h2>Now showing.</h2></div>
+      <div class="tabs" role="group" aria-label="Filter films">
+        <button type="button" data-f="all" aria-pressed="true">All</button>
+        <button type="button" data-f="gala" aria-pressed="false">Galas</button>
+        <button type="button" data-f="comp" aria-pressed="false">Competition</button>
+        <button type="button" data-f="night" aria-pressed="false">Midnight</button>
+        <button type="button" data-f="short" aria-pressed="false">Shorts</button>
+      </div>
+    </div>
+    <ul class="films">
+      <li class="film" data-c="gala"><div class="when"><b>15</b>Thu · 20:00</div><div class="poster" style="--h:18"></div><div><h3>The Salt Orchard</h3><p>Inês Valadares · Portugal · 112 min</p></div><div class="venue">Coliseu Hall<small>Opening gala, director in person</small></div><span class="badge hot">World premiere</span></li>
+      <li class="film" data-c="comp"><div class="when"><b>16</b>Fri · 18:30</div><div class="poster" style="--h:200"></div><div><h3>Glasshouse Weather</h3><p>Mara Lindqvist · Sweden · 98 min</p></div><div class="venue">Cinema Trindade<small>Screen 1</small></div><span class="badge hot">World premiere</span></li>
+      <li class="film" data-c="night"><div class="when"><b>16</b>Fri · 23:45</div><div class="poster" style="--h:280"></div><div><h3>Night Bus to Nowhere</h3><p>Kenji Arai · Japan · 89 min</p></div><div class="venue">Batalha Cinema<small>Screen 2</small></div><span class="badge night">Midnight</span></li>
+      <li class="film" data-c="short"><div class="when"><b>17</b>Sat · 15:00</div><div class="poster" style="--h:140"></div><div><h3>Small Fires</h3><p>Six shorts from new directors · 84 min</p></div><div class="venue">Rivoli Studio<small>Q&amp;A after</small></div><span class="badge">Shorts</span></li>
+      <li class="film" data-c="comp"><div class="when"><b>18</b>Sun · 21:00</div><div class="poster" style="--h:330"></div><div><h3>A House Made of Rain</h3><p>Tomás Ferreira · Brazil · 124 min</p></div><div class="venue">Coliseu Hall<small>Main stage</small></div><span class="badge">Competition</span></li>
+      <li class="film" data-c="comp"><div class="when"><b>20</b>Tue · 19:30</div><div class="poster" style="--h:40"></div><div><h3>Kites Over Tbilisi</h3><p>Nino Beridze · Georgia · 105 min</p></div><div class="venue">Cinema Trindade<small>Screen 1</small></div><span class="badge hot">European premiere</span></li>
+      <li class="film" data-c="night"><div class="when"><b>21</b>Wed · 23:30</div><div class="poster" style="--h:300"></div><div><h3>Velvet Static</h3><p>Ada Okafor · Nigeria / UK · 92 min</p></div><div class="venue">Batalha Cinema<small>Screen 1, 35mm print</small></div><span class="badge night">Midnight</span></li>
+      <li class="film" data-c="comp"><div class="when"><b>23</b>Fri · 20:00</div><div class="poster" style="--h:8"></div><div><h3>The Last Projectionist</h3><p>Paul Duval · France · 117 min</p></div><div class="venue">São João Theatre<small>Grand hall</small></div><span class="badge">Competition</span></li>
+      <li class="film" data-c="gala"><div class="when"><b>25</b>Sun · 20:30</div><div class="poster" style="--h:220"></div><div><h3>Tidewater</h3><p>Lena Hart · Ireland · 101 min</p></div><div class="venue">Coliseu Hall<small>Closing gala + awards</small></div><span class="badge hot">Closing night</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="block passes" id="passes">
+  <div class="wrap">
+    <div class="head"><div><span class="eyebrow">Passes</span><h2>Pick your seat.</h2></div><p style="color:var(--muted);max-width:26rem">Every pass includes free entry to talks, the festival bar and the open-air screenings on Praça da Batalha.</p></div>
+    <div class="tiers">
+      <article class="tier"><h3>Day Pass</h3><div class="price">€16<small>/ day</small></div><ul><li>Any three screenings in one day</li><li>Standard seating</li><li>Festival app with live queue times</li></ul><a href="#programme" class="btn btn-ghost">Choose a day</a></article>
+      <article class="tier pick"><h3>Festival Pass</h3><div class="price">€145<small>/ 11 days</small></div><ul><li>Unlimited screenings, all venues</li><li>Priority queue, 15 min early</li><li>Opening gala ticket</li><li>Tote, poster and printed catalogue</li></ul><a href="#passes" class="btn btn-main">Get the Festival Pass</a></article>
+      <article class="tier"><h3>Patron</h3><div class="price">€380<small>/ 11 days</small></div><ul><li>Everything in Festival Pass</li><li>Reserved seats at both galas</li><li>Closing party and filmmaker brunches</li><li>Your name on the big screen</li></ul><a href="#passes" class="btn btn-ghost">Become a patron</a></article>
+    </div>
+  </div>
+</section>
+
+<footer id="venues">
+  <div class="wrap">
+    <a href="#top" class="logo"><i></i>NOVA</a>
+    <span>Coliseu Hall · Cinema Trindade · Batalha Cinema · Rivoli Studio · São João Theatre · Praça da Batalha</span>
+    <nav><a href="#programme">Programme</a><a href="#passes">Passes</a><a href="#top">Top</a></nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const CONFIG = {
+    smoothing: 0.11,   // 0–1: how quickly the camera catches up with the scrollbar
+    irisEnd: 0.3,      // progress (0–1) when the O's counter is fully open
+    zoomEnd: 0.7,      // progress when the scene fills the screen
+    depth: 0.6,        // extra camera push into the sunset during the zoom
+    quality: 1,        // canvas resolution (x devicePixelRatio, capped at 2)
+    // Sky gradient, top to horizon, then the sea
+    SKY: ["#1a0f33", "#4a1a4f", "#a3305a", "#ff6a4d", "#ffb45e", "#ffe0a0"],
+    SEA: ["#3a1638", "#120a1a"],
+  };
+  // Glyph geometry (units of #glyphs): word box, and the O's centre + radii.
+  const GLYPH = { w: 1640, h: 410, cx: 820, cy: 200, ox: 580, oy: 200, R: 210, r: 100 };
+
+  const reel = document.getElementById("top");
+  const stage = reel.querySelector(".stage");
+  const cvs = document.getElementById("sky"), ctx = cvs.getContext("2d");
+  const svg = document.getElementById("mask");
+  const cutWord = document.getElementById("cutWord"), lineWord = document.getElementById("lineWord");
+  const cut = document.getElementById("cut"), irisLine = document.getElementById("irisLine");
+  const GLYPH_D = document.getElementById("glyphs").getAttribute("d");
+  const overs = [...stage.querySelectorAll(".over, .cue")];
+  const reveal = stage.querySelector(".reveal"), dim = stage.querySelector(".dim"), bars = stage.querySelector(".bars");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const smooth = (t) => (t = clamp(t), t * t * (3 - 2 * t));
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  let W = 0, H = 0, dpr = 1, s0 = 1, sMax = 1, C = { x: 0, y: 0 }, sun0 = { x: 0, y: 0 }, rs = 0, zEnd = 1;
+  let cur = 0, target = 0, raf = 0, visible = true, cam = { x: 0, y: 0, z: 1 };
+
+  // Film grain: one random tile, shifted by a stepped CSS animation
+  (function grain() {
+    const g = stage.querySelector(".grain"), n = 160;
+    g.width = g.height = n;
+    const gx = g.getContext("2d"), img = gx.createImageData(n, n);
+    for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+    gx.putImageData(img, 0, 0);
+    g.style.width = g.style.height = "200%";
+    g.style.background = `url(${g.toDataURL()})`; // tile it over the whole area
+    gx.clearRect(0, 0, n, n);
+  })();
+
+  // Seeded random so clouds / birds keep their places between frames
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const clouds = Array.from({ length: 9 }, () => ({ x: rnd() * 2 - .5, y: -.25 - rnd() * 1.2, l: .4 + rnd() * .9, t: .025 + rnd() * .04, v: .004 + rnd() * .01, c: rnd() }));
+  const birds = Array.from({ length: 6 }, (_, i) => ({ x: rnd(), y: -.9 - rnd() * .6, s: .6 + rnd() * .6, p: rnd() * 6, v: .012 + rnd() * .01 }));
+
+  function measure() {
+    W = stage.clientWidth; H = stage.clientHeight;
+    dpr = Math.min(2, (devicePixelRatio || 1) * CONFIG.quality);
+    cvs.width = Math.round(W * dpr); cvs.height = Math.round(H * dpr);
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const narrow = W <= 720;
+    s0 = Math.min(W * (narrow ? 0.9 : 0.84) / GLYPH.w, H * (narrow ? 0.3 : 0.44) / GLYPH.h);
+    C = { x: W / 2, y: H * (narrow ? 0.42 : 0.46) };
+    sMax = Math.hypot(W, H) / 2 / GLYPH.r * 1.08;  // the open counter covers the screen
+    sun0 = { x: C.x + s0 * (GLYPH.ox - GLYPH.cx), y: C.y + s0 * (GLYPH.oy - GLYPH.cy) };
+    rs = s0 * 168;                                   // sun peeks through the O's ring
+    zEnd = Math.max(1 + CONFIG.depth, Math.min(W, H) * 0.24 / rs);
+    stage.style.setProperty("--wy", C.y + "px");
+    stage.style.setProperty("--wh", (s0 * GLYPH.h / 2) + "px");
+    if (!reduce.matches) reel.style.height = "340vh";
+  }
+
+  // Scroll progress -> word transform, iris, camera, overlays
+  function layout(t) {
+    const zt = clamp((t - 0.04) / (CONFIG.zoomEnd - 0.04));
+    const e = Math.pow(zt, 2.4);                      // slow start, rushing finish
+    const s = s0 * Math.pow(sMax / s0, e);
+    const f = smooth(zt * 1.7);                       // focus slides from word centre to the O
+    const fx = lerp(GLYPH.cx, GLYPH.ox, f), fy = lerp(GLYPH.cy, GLYPH.oy, f);
+    const tx = C.x - s * fx, ty = C.y - s * fy, m = `matrix(${s} 0 0 ${s} ${tx} ${ty})`;
+    cutWord.setAttribute("transform", m); lineWord.setAttribute("transform", m);
+    const r = GLYPH.r * (1 - smooth((t - 0.02) / (CONFIG.irisEnd - 0.02)));
+    // The rect is the viewport mapped back into glyph units (plus a margin)
+    const x0 = -tx / s - 10, y0 = -ty / s - 10, w = W / s + 20, h = H / s + 20;
+    const ring = r > 0.5 ? `M${GLYPH.ox - r} ${GLYPH.oy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z` : "";
+    cut.setAttribute("d", `M${x0} ${y0}h${w}v${h}h${-w}Z` + GLYPH_D + ring);
+    irisLine.setAttribute("r", r);
+    lineWord.style.opacity = 1 - smooth(e * 3);
+    svg.style.visibility = zt >= 1 ? "hidden" : "visible";
+    // Camera: keep the sun locked to the O while pushing in
+    cam = { x: tx + s * GLYPH.ox, y: ty + s * GLYPH.oy, z: lerp(1, zEnd, smooth(zt)) };
+    const out = smooth((t - 0.02) / 0.12);
+    overs.forEach((el) => { el.style.opacity = 1 - out; el.style.transform = (el.classList.contains("cue") ? "translateX(-50%) " : "") + `translateY(${out * -30}px)`; el.style.visibility = out >= 1 ? "hidden" : "visible"; });
+    const rv = smooth((t - CONFIG.zoomEnd - 0.02) / 0.14);
+    reveal.style.opacity = rv; reveal.style.transform = `translateY(${(1 - rv) * 40}px)`; reveal.classList.toggle("on", rv > 0.5);
+    dim.style.opacity = rv * 0.8;
+    bars.style.setProperty("--lb", smooth((t - CONFIG.zoomEnd + 0.05) / 0.15).toFixed(3));
+  }
+
+  // ---- The procedural sunset (world coords = the unzoomed screen) --------
+  function grad(y0, y1, cols) {
+    const g = ctx.createLinearGradient(0, y0, 0, y1);
+    cols.forEach((c, i) => g.addColorStop(i / (cols.length - 1), c));
+    return g;
+  }
+  function ridge(hz, amp, seedK, color) {
+    ctx.beginPath(); ctx.moveTo(-W, hz + 2);
+    for (let x = -W; x <= 2 * W; x += 12) {
+      const k = Math.abs(x - sun0.x) / (rs * 4);      // keep the sun's notch clear
+      const n = Math.sin(x * .011 * seedK) * .5 + Math.sin(x * .027 + seedK) * .3 + Math.sin(x * .061 * seedK) * .2;
+      ctx.lineTo(x, hz - amp * clamp(k, .15, 1) * (.55 + .45 * n));
+    }
+    ctx.lineTo(2 * W, hz + 2); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  }
+
+  function draw(time) {
+    const { x: cx, y: cy, z } = cam, u = rs;
+    ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (cx - z * sun0.x), dpr * (cy - z * sun0.y));
+    const hz = sun0.y + u * 0.42, top = sun0.y - Math.max(u * 3, H * 0.42);
+    // Sky + sun glow
+    ctx.fillStyle = grad(top, hz, CONFIG.SKY); ctx.fillRect(-W, top - H * 2, W * 3, hz - top + H * 2);
+    let g = ctx.createRadialGradient(sun0.x, sun0.y, u * .6, sun0.x, sun0.y, u * 5);
+    g.addColorStop(0, "rgb(255 200 120 / .75)"); g.addColorStop(.35, "rgb(255 110 80 / .25)"); g.addColorStop(1, "rgb(255 90 80 / 0)");
+    ctx.fillStyle = g; ctx.fillRect(sun0.x - u * 5, sun0.y - u * 5, u * 10, u * 10);
+    // The sun, gently breathing, with heat shimmer bands near the horizon
+    const pulse = 1 + Math.sin(time * 1.3) * .012;
+    g = ctx.createLinearGradient(0, sun0.y - u, 0, sun0.y + u);
+    g.addColorStop(0, "#fff4cf"); g.addColorStop(.55, "#ffc36b"); g.addColorStop(1, "#ff7a45");
+    ctx.save(); ctx.beginPath(); ctx.arc(sun0.x, sun0.y, u * pulse, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = g; ctx.fillRect(sun0.x - u, sun0.y - u, u * 2, u * 2);
+    ctx.fillStyle = CONFIG.SKY[3];
+    for (let i = 0; i < 6; i++) { const yy = sun0.y + u * (.08 + i * .07) + Math.sin(time * 2 + i) * u * .006; ctx.globalAlpha = .55; ctx.fillRect(sun0.x - u, yy, u * 2, u * (.008 + i * .007)); }
+    ctx.restore(); ctx.globalAlpha = 1;
+    // Clouds: long lit streaks drifting across
+    clouds.forEach((c) => {
+      const x = ((c.x + time * c.v) % 2 + 2) % 2 - .5, px = sun0.x + (x - .5) * W * 1.6, py = sun0.y + c.y * u * 2.4;
+      const len = c.l * W * .5, th = c.t * H;
+      const cg = ctx.createLinearGradient(px - len, 0, px + len, 0);
+      const col = c.c > .5 ? "255 150 110" : "255 205 150";
+      cg.addColorStop(0, `rgb(${col} / 0)`); cg.addColorStop(.5, `rgb(${col} / .6)`); cg.addColorStop(1, `rgb(${col} / 0)`);
+      ctx.fillStyle = cg;
+      for (let k = 1; k <= 3; k++) { ctx.globalAlpha = .4; ctx.beginPath(); ctx.ellipse(px, py, len * (1.2 - k * .2), th * (1.3 - k * .3), 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = .18; ctx.fillStyle = "#3c143c"; ctx.beginPath(); ctx.ellipse(px, py + th * .55, len * .7, th * .3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+    // Mountains
+    ridge(hz, u * 1.1, 1, "#5a2050");
+    ridge(hz, u * .55, 1.7, "#2e1233");
+    // Sea with a shimmering sun path
+    ctx.fillStyle = grad(hz, hz + H * 1.5, CONFIG.SEA); ctx.fillRect(-W, hz, W * 3, H * 2);
+    for (let y = hz + 2, i = 0; y < hz + H; y += 3 + (y - hz) * .03, i++) {
+      const d = (y - hz) / (H * .6), w = u * (.9 + d * 1.6) * (.35 + .65 * Math.abs(Math.sin(i * 1.7 + time * 1.6)));
+      ctx.fillStyle = `rgb(255 ${190 - d * 60} 110 / ${.6 * (1 - clamp(d)) + .04})`;
+      ctx.fillRect(sun0.x - w / 2 + Math.sin(i + time) * u * .1, y, w, 1.2 + d * 1.6);
+    }
+    // Birds
+    ctx.strokeStyle = "#1c0b22"; ctx.lineWidth = Math.max(1.2, u * .025); ctx.lineCap = "round";
+    birds.forEach((b) => {
+      const x = sun0.x + ((((b.x + time * b.v) % 1.6) + 1.6) % 1.6 - .8) * W, y = sun0.y + b.y * u, k = b.s * u * .12, f = Math.sin(time * 6 + b.p) * k * .6;
+      ctx.beginPath(); ctx.moveTo(x - k, y - f); ctx.quadraticCurveTo(x - k * .4, y - k * .2, x, y); ctx.quadraticCurveTo(x + k * .4, y - k * .2, x + k, y - f); ctx.stroke();
+    });
+  }
+
+  function read() {
+    const range = reel.offsetHeight - innerHeight;
+    target = range > 0 ? clamp(-reel.getBoundingClientRect().top / range) : 0;
+  }
+
+  function frame(now) {
+    raf = 0;
+    read();
+    cur += (target - cur) * CONFIG.smoothing;
+    if (Math.abs(target - cur) < 1e-4) cur = target;
+    layout(cur);
+    draw(now / 1000);
+    kick();                                           // the sunset keeps moving
+  }
+  function kick() {
+    if (!raf && visible && !document.hidden) raf = requestAnimationFrame(frame);
+  }
+
+  let rz = 0;
+  addEventListener("resize", () => {
+    cancelAnimationFrame(rz);
+    rz = requestAnimationFrame(() => { measure(); layout(cur); draw(performance.now() / 1000); });
+  });
+
+  measure();
+  if (reduce.matches) {
+    reel.style.height = "";
+    layout(0); draw(0);                               // one still frame
+  } else {
+    read(); cur = target; layout(cur); draw(0);
+    new IntersectionObserver(([en]) => { visible = en.isIntersecting; kick(); }).observe(reel);
+    addEventListener("scroll", kick, { passive: true });
+    document.addEventListener("visibilitychange", kick);
+  }
+
+  // ---- Programme filter -------------------------------------------------
+  const tabs = [...document.querySelectorAll(".tabs button")], films = [...document.querySelectorAll(".film")];
+  tabs.forEach((b) => b.addEventListener("click", () => {
+    tabs.forEach((t) => t.setAttribute("aria-pressed", t === b));
+    films.forEach((f) => { f.hidden = b.dataset.f !== "all" && f.dataset.c !== b.dataset.f; });
+  }));
+})();
+</script>
+</body>
+</html>
