@@ -1,0 +1,236 @@
+/* Showcase3D: the pinned 3D scenes after the dive. */
+
+.s-section {
+  --u-serif: var(--font-serif), Georgia, "Times New Roman", serif;
+  position: relative;
+  height: 700svh;
+  /* Overlaps the end of the hero, so the ring rises in the moment the dive ends. */
+  margin-top: -60svh;
+  color: var(--u-fg);
+  font-family: var(--u-serif);
+}
+.s-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+}
+.s-scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  perspective: 2200px;
+  transform-style: preserve-3d;
+}
+.s-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--u-acid);
+}
+.s-section h2 {
+  margin-top: 1rem;
+  font-size: clamp(2.75rem, 6.4vw, 7rem);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+}
+.s-section h2 em {
+  font-style: italic;
+  background: linear-gradient(100deg, var(--m-lime), #fff 45%, var(--m-coral));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 1 · Ring */
+.s-ring-title { position: absolute; text-align: center; z-index: 1; pointer-events: none; text-shadow: 0 10px 40px rgb(0 0 0 / 0.6); }
+.s-ring {
+  --w: 15vw;
+  --r: calc(var(--w) * 2.15);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.s-card {
+  position: absolute;
+  width: var(--w);
+  left: calc(var(--w) / -2);
+  top: calc(var(--w) * -0.36);
+  transform: rotateY(var(--a)) translateZ(var(--r));
+  border-radius: 0.9rem;
+  overflow: hidden;
+  background: #0d0f14;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.8), 0 0 40px -12px color-mix(in srgb, var(--c) 70%, transparent);
+}
+.s-shot { position: relative; aspect-ratio: 16 / 10; }
+.s-card figcaption {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.6rem;
+  padding: 0.6rem 0.8rem 0.7rem;
+  font-family: var(--font-sans);
+  border-top: 2px solid var(--c);
+}
+.s-card b { grid-row: span 2; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500; color: var(--c); padding-top: 0.15rem; }
+.s-card strong { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-card small { font-size: 0.65rem; color: var(--u-muted); }
+
+/* 2 · Tunnel */
+.s-scene-tunnel { perspective: 900px; }
+.s-tunnel-kicker { position: absolute; top: 14vh; left: 0; right: 0; text-align: center; font-family: var(--font-sans); font-size: 0.8rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--u-muted); z-index: 2; }
+.s-tunnel-cam { position: absolute; top: 50%; left: 50%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
+.s-word {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  font-size: 13vw;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+  color: var(--c);
+  /* Extruded: a stack of offset shadows reads as solid 3D type, then a glow. */
+  text-shadow:
+    2px 2px 0 color-mix(in srgb, var(--c) 66%, #000),
+    4px 4px 0 color-mix(in srgb, var(--c) 50%, #000),
+    6px 6px 0 color-mix(in srgb, var(--c) 34%, #000),
+    8px 8px 0 color-mix(in srgb, var(--c) 18%, #000),
+    10px 14px 24px rgb(0 0 0 / 0.55);
+}
+.s-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1300px;
+  height: 800px;
+  translate: -50% -50%;
+  border: 3px solid var(--c);
+  border-radius: 64px;
+  will-change: transform; /* rastered once, not re-drawn as it nears */
+  box-shadow: 0 0 18px var(--c);
+}
+.s-streak {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, var(--c));
+  will-change: transform;
+}
+.s-fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 520px;
+  aspect-ratio: 16 / 10;
+  translate: -50% -50%;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid var(--c);
+  box-shadow: 0 0 50px -6px var(--c), 0 40px 60px -20px rgb(0 0 0 / 0.9);
+}
+.s-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--c, #000) 30%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s;
+  will-change: opacity;
+}
+.s-flash[data-on] { opacity: 1; }
+
+/* 3 · Wall + CTA (flat: the tilted wall must not cut through the CTA) */
+.s-scene-wall { transform-style: flat; }
+.s-wall {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(4, 22vw);
+  gap: 1.6vw;
+  will-change: transform;
+}
+.s-col { display: grid; gap: 1.6vw; align-content: start; will-change: transform; }
+.s-dim { position: absolute; inset: 0; background: #07090d; opacity: 0; pointer-events: none; }
+.s-tile {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 0.8rem;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 40%, transparent), 0 40px 50px -25px rgb(0 0 0 / 0.9);
+}
+.s-cta {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 3rem 4rem;
+}
+.s-cta::before {
+  content: "";
+  position: absolute;
+  inset: -30% -20%;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgb(7 9 13 / 0.92), rgb(7 9 13 / 0.6) 60%, transparent);
+}
+.s-cta-row { display: flex; justify-content: center; gap: 0.9rem; margin-top: 2.2rem; }
+.s-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.95rem 1.6rem;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: translate 0.3s, box-shadow 0.3s;
+}
+.s-cta[data-in] .u-cta-primary { animation: s-pulse 2.4s ease-in-out infinite 0.6s; }
+@keyframes s-pulse {
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--u-acid) 0%, transparent), 0 0 50px -6px var(--u-acid); }
+}
+
+/* HUD */
+.s-hud {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.6rem 3rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--u-muted);
+}
+.s-count { color: var(--u-fg); }
+.s-bar { flex: 1; height: 1px; background: var(--u-line); overflow: hidden; }
+.s-bar i { display: block; height: 100%; background: var(--u-acid); transform-origin: left; transform: scaleX(0); }
+
+/* Recording: no cursor, no scrollbar. */
+html[data-autoplay], html[data-autoplay] * { cursor: none !important; }
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
+
+@media (max-width: 799px) {
+  .s-ring { --w: 42vw; }
+  .s-wall { grid-template-columns: repeat(4, 40vw); }
+  .s-cta { padding: 2rem 1rem; }
+  .s-cta-row { flex-direction: column; align-items: center; }
+  .s-hud { padding: 1rem; }
+}

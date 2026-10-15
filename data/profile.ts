@@ -26,7 +26,7 @@ export type Review = {
 };
 
 // Used by the contact links below and the multitude pages' calls to action.
-const email = "pankajmultitude@gmail.com";
+const email = "pankajstudio119@gmail.com";
 // WhatsApp: country code + number, digits only. Powers the Contact section and menu chat links.
 const whatsapp = "917833085612";
 // A WhatsApp chat with me, the message box pre-filled with `text`.

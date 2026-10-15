@@ -6,9 +6,6 @@ import { ArtIcon, artIcon, artVars } from "@/components/MultitudeArt";
 import { profile } from "@/data/profile";
 import { motionReduced, PREFS_EVENT } from "@/lib/prefs";
 
-const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
-const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
-
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smooth = (v: number) => v * v * (3 - 2 * v);
 
@@ -104,22 +101,7 @@ export default function MultitudesHero() {
     const portal = portalRef.current!;
     const readout = readoutRef.current!;
     const nodes = world.querySelector<HTMLElement>(".u-nodes")!;
-    const arrive = stage.querySelector<HTMLElement>(".u-arrive")!;
     const outsideEls = stage.querySelectorAll<HTMLElement>(".u-vignette, .u-bottom");
-    // The arrival's pieces, each with the point of the landing (0..1) where it
-    // comes in. Crossing it flips data-in and a CSS transition plays it in (or
-    // back out): scrubbing ~60 letters/chips from scroll every frame re-styled
-    // and re-painted all of them at once, right as the hole filled the screen.
-    const kOf = (el: HTMLElement) => Number(el.style.getPropertyValue("--k")) || 0;
-    const reveals: [HTMLElement, number][] = [
-      ...[...arrive.querySelectorAll<HTMLElement>(".u-portal-copy")].map((el) => [el, 0.1] as [HTMLElement, number]),
-      ...[...arrive.querySelectorAll<HTMLElement>(".u-arrive-rings, .u-arrive-kicker")].map((el) => [el, 0.2] as [HTMLElement, number]),
-      ...[...arrive.querySelectorAll<HTMLElement>(".u-arrive-line > span > span")].map((el) => [el, (0.5 + kOf(el) * 0.045) / 2.4] as [HTMLElement, number]),
-      ...[...arrive.querySelectorAll<HTMLElement>(".u-arrive-sub")].map((el) => [el, 0.57] as [HTMLElement, number]),
-      ...[...arrive.querySelectorAll<HTMLElement>(".u-arrive-chips li")].map((el) => [el, 0.45 + (0.5 + kOf(el) * 0.08) / 4] as [HTMLElement, number]),
-      ...[...arrive.querySelectorAll<HTMLElement>(".u-arrive-cta")].map((el) => [el, 0.725] as [HTMLElement, number]),
-    ];
-    const shownIn = reveals.map(() => false);
     // Everything that clears out early (cards, glow, orbits, micro labels):
     // once invisible it's hidden too, so it isn't re-rastered at huge scale.
     // The logo mark and the studio photo behind the hero go with them, so the
@@ -241,23 +223,12 @@ export default function MultitudesHero() {
       const covered = inner > Math.hypot(sw, sh) / 2 + 2;
       if (covered !== (scene.style.visibility === "hidden")) scene.style.visibility = covered ? "hidden" : "";
       clipCosmos(covered ? "" : `circle(${inner.toFixed(1)}px at ${x.toFixed(1)}px ${y.toFixed(1)}px)`);
-      // The landing fades are written as plain opacity on the few layers that
-      // use it (and only when it moves): an inherited custom property here
-      // re-styled every element under them each frame (the stutter around 90×).
+      // The bottom bar and vignette clear out as the hole fills the frame;
+      // the 3D showcase (Showcase3D) takes over from there.
       const inside = smooth(clamp01((cur - 0.86) / 0.12));
       if (inside !== shownInside) {
         shownInside = inside;
-        arrive.style.opacity = inside.toFixed(3);
         for (const el of outsideEls) el.style.opacity = (1 - inside).toFixed(3);
-        reveals.forEach(([el, at], i) => {
-          const on = inside >= at;
-          if (on !== shownIn[i]) el.toggleAttribute("data-in", (shownIn[i] = on));
-        });
-        // Makes the arrival's chips and buttons clickable, and reachable by
-        // keyboard and screen readers (inert until then).
-        const arrived = inside > 0.6;
-        stage.toggleAttribute("data-arrived", arrived);
-        arrive.inert = !arrived;
       }
       const text = `Zoom ${zoom < 10 ? zoom.toFixed(2) : zoom.toFixed(0)}×`;
       if (text !== shownReadout) readout.textContent = shownReadout = text;
@@ -280,14 +251,7 @@ export default function MultitudesHero() {
       scene.style.visibility = "";
       for (const v of ["width", "height", "border-width", "transform"]) portal.style.removeProperty(v);
       clipCosmos("");
-      arrive.style.removeProperty("opacity");
       for (const el of outsideEls) el.style.removeProperty("opacity");
-      reveals.forEach(([el], i) => {
-        el.removeAttribute("data-in");
-        shownIn[i] = false;
-      });
-      stage.removeAttribute("data-arrived");
-      arrive.inert = true;
       shownInside = -1;
       section.removeAttribute("data-zooming");
     };
@@ -316,8 +280,8 @@ export default function MultitudesHero() {
 
     const onScroll = () => {
       if (!wide.matches || motionReduced()) return;
-      // Dive over most of the scroll; the last stretch rests inside the dot.
-      target = clamp01((progress() - 0.03) / 0.85);
+      // The dive ends ~80% through; the showcase overlaps the rest and rises in.
+      target = clamp01((progress() - 0.03) / 0.77);
       if (!frame && target !== cur) {
         measure();
         frame = requestAnimationFrame(tick);
@@ -488,7 +452,7 @@ export default function MultitudesHero() {
           </ul>
         </>
       )}
-      <Link href="/explore" className="u-sites-explore">
+      <Link prefetch={false} href="/explore" className="u-sites-explore">
         Explore your type <span aria-hidden>→</span>
       </Link>
     </>
@@ -550,7 +514,7 @@ export default function MultitudesHero() {
                   const style = { "--x": `${m.x}%`, "--y": `${m.y}%`, "--c": m.color, "--i": i, ...artVars(m.slug, m.color) } as CSSProperties;
                   return (
                     <li key={m.n} className="u-node" style={style}>
-                      <Link href={`/websites/${m.slug}`}>
+                      <Link prefetch={false} href={`/websites/${m.slug}`}>
                         {/* Hover floods the card with its gradient and draws its icon. */}
                         <span className="u-node-flood" aria-hidden />
                         <span className="u-node-icon" aria-hidden>
@@ -565,7 +529,7 @@ export default function MultitudesHero() {
                 })}
                 {/* Not a business type: my 3D / WebGL demos, under Coaching / Education. */}
                 <li className="u-node u-node-3d" style={{ "--x": "4%", "--y": "82%", "--c": "var(--m-blue)", "--i": multitudes.length, ...artVars("3d", "var(--m-blue)") } as CSSProperties}>
-                  <Link href="/templates">
+                  <Link prefetch={false} href="/templates">
                     <span className="u-node-flood" aria-hidden />
                     <span className="u-node-icon" aria-hidden>
                       <ArtIcon icon={artIcon("3d")} />
@@ -580,7 +544,7 @@ export default function MultitudesHero() {
               {/* Phones skip the dive, so the arrival's call to action lives here
                   ("Explore your type" is already under the title). */}
               <div className="u-mobile-cta">
-                <Link href="/contact" className="u-cta-primary">
+                <Link prefetch={false} href="/contact" className="u-cta-primary">
                   Customise your website plan <span aria-hidden>→</span>
                 </Link>
                 <a href={`mailto:${profile.contact.email}`} className="u-cta-ghost">
@@ -602,61 +566,6 @@ export default function MultitudesHero() {
         </div>
 
         <div ref={portalRef} className="u-portal" aria-hidden />
-        <div className="u-arrive" inert>
-          <div className="u-portal-copy">
-            <div className="u-arrive-rings" aria-hidden>
-              <i />
-              <i />
-              <i />
-            </div>
-            <span className="u-arrive-kicker">You just dived into the i.</span>
-            <p className="u-arrive-title">
-              {(() => {
-                let k = 0;
-                return "Welcome to | the studio.".split(" | ").map((line, l) => (
-                  <span key={l} className="u-arrive-line">
-                    {line.split(" ").map((word) => (
-                      <span key={word} className={word.startsWith("studio") ? "u-arrive-accent" : undefined}>
-                        {[...word].map((ch) => (
-                          <span key={k} style={{ "--k": k++ } as CSSProperties}>
-                            {ch}
-                          </span>
-                        ))}
-                      </span>
-                    ))}
-                  </span>
-                ));
-              })()}
-            </p>
-            <p className="u-arrive-sub">
-              <span>{profile.brand}</span> builds websites for all {numberWord(multitudes.length)} of these:
-            </p>
-            <ul className="u-arrive-chips">
-              {multitudes.map((m, i) => (
-                <li key={m.n} style={{ "--c": m.color, "--k": i } as CSSProperties}>
-                  <Link href={`/websites/${m.slug}`}>
-                    <b>{m.n}</b> {m.title}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <div className="u-arrive-cta">
-              <Link href="/explore" className="u-cta-primary">
-                Explore your type <span aria-hidden>→</span>
-              </Link>
-              <a href={`mailto:${profile.contact.email}`} className="u-cta-ghost">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="u-mail" aria-hidden>
-                  <rect x="3" y="5" width="18" height="14" rx="2" />
-                  <path d="m3.5 6.5 8.5 6.5 8.5-6.5" />
-                </svg> Email me
-              </a>
-              <p className="u-open">
-                <i className="u-live" aria-hidden /> Open for new projects
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div className="u-bottom">
           <span>
             <span className="u-wheel" aria-hidden>↕</span> Scroll to dive into the i

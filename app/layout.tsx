@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
-import HelpButton from "@/components/HelpButton";
-import { BasketPill } from "@/components/MessageActions";
-import PerfGuard from "@/components/PerfGuard";
-import PortalTransition from "@/components/PortalTransition";
 import PrefsSync from "@/components/PrefsSync";
 import { profile } from "@/data/profile";
 import { DEFAULT_PREFS, prefsScript } from "@/lib/prefs";
@@ -55,11 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full font-sans">
         <PrefsSync />
-        <PerfGuard />
         {children}
-        <BasketPill />
-        <HelpButton />
-        <PortalTransition />
       </body>
     </html>
   );
