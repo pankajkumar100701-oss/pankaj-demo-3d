@@ -68,18 +68,46 @@ async function launch() {
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
     return r.result.value;
   };
-  const close = () => {
+  // Wait for Chrome to exit before removing its profile, or it is still
+  // writing into it and the delete fails with ENOTEMPTY.
+  const close = async () => {
     ws.close();
+    const exited = new Promise((r) => proc.once("exit", r));
     proc.kill();
-    rmSync(profile, { recursive: true, force: true });
+    await exited;
+    // Chrome's helper processes can outlive it for a moment; a leftover temp
+    // profile is harmless, so don't fail the run over it.
+    try {
+      rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch {}
   };
   return { send, evaluate, close };
 }
 
 // Seeded Math.random (mulberry32), installed before any page script runs.
 const SEED = `(()=>{let a=0x2f6b1c3d;Math.random=()=>{a|=0;a=a+0x6d2b79f5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}})()`;
-// Finite animations jump to their end, endless loops rest at frame 0.
-const FREEZE = `(async()=>{for(const a of document.getAnimations()){const t=a.effect&&a.effect.getComputedTiming();if(t&&t.iterations===Infinity){a.pause();a.currentTime=0}else{try{a.finish()}catch{a.pause()}}}await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))) })()`;
+// The same image is shown at several sizes (Aangan Estates is in the Build
+// scene and on the cards), and Chrome may show any srcset candidate it already
+// holds, so which one appears flips between runs. To make shots repeatable,
+// every srcset <img> is pinned to the smallest candidate at least as wide as
+// its layout box (what `sizes` aims for at DPR 1). The `sizes` attribute and
+// the pick are returned and written beside the shot, and compare checks them
+// too, so a changed `sizes` is still caught.
+// Then: every <img> loaded and decoded (15s cap), finite animations jump to
+// their end and endless loops rest at frame 0.
+const FREEZE = `(async()=>{
+  for(const i of document.images){
+    if(!i.srcset)continue;
+    const c=i.srcset.split(",").map(x=>x.trim().split(/\\s+/)).map(([u,w])=>({u,w:parseInt(w)})).sort((a,b)=>a.w-b.w);
+    const pick=(c.find(x=>x.w>=i.offsetWidth)??c[c.length-1]).u;
+    i.dataset.vc=(i.getAttribute("sizes")??"")+" -> "+pick;
+    i.removeAttribute("srcset");i.removeAttribute("sizes");i.src=pick;
+  }
+  await Promise.race([Promise.all([...document.images].map(i=>(i.complete?Promise.resolve():new Promise(r=>{i.addEventListener("load",r,{once:true});i.addEventListener("error",r,{once:true})})).then(()=>i.decode().catch(()=>{})))),new Promise(r=>setTimeout(r,15000))]);
+  for(const a of document.getAnimations()){const t=a.effect&&a.effect.getComputedTiming();if(t&&t.iterations===Infinity){a.pause();a.currentTime=0}else{try{a.finish()}catch{a.pause()}}}
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  return [...document.images].map(i=>i.dataset.vc??i.currentSrc).filter(Boolean);
+})()`;
 
 async function capture(outDir, baseUrl = "http://localhost:3000") {
   mkdirSync(outDir, { recursive: true });
@@ -88,7 +116,9 @@ async function capture(outDir, baseUrl = "http://localhost:3000") {
   await b.send("Page.addScriptToEvaluateOnNewDocument", { source: SEED });
   let n = 0;
   try {
-    for (const [w, h] of VIEWPORTS) {
+    // VC_VIEWPORTS="1440x900,390x844" limits a capture to those viewports.
+    const only = process.env.VC_VIEWPORTS?.split(",");
+    for (const [w, h] of VIEWPORTS.filter(([w, h]) => !only || only.includes(`${w}x${h}`))) {
       await b.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 800 });
       for (const [theme, prefs] of Object.entries(THEMES)) {
         await b.send("Page.navigate", { url: baseUrl });
@@ -99,15 +129,17 @@ async function capture(outDir, baseUrl = "http://localhost:3000") {
         for (const f of STOPS) {
           await b.evaluate(`window.scrollTo(0, Math.round((document.documentElement.scrollHeight - innerHeight) * ${f}))`);
           await wait(1600); // the dive's eased glide settles
-          await b.evaluate(FREEZE);
+          const srcs = await b.evaluate(FREEZE);
           const { data } = await b.send("Page.captureScreenshot", { format: "png" });
-          writeFileSync(join(outDir, `${w}x${h}-${theme}-${String(f).padEnd(4, "0")}.png`), Buffer.from(data, "base64"));
+          const name = `${w}x${h}-${theme}-${String(f).padEnd(4, "0")}`;
+          writeFileSync(join(outDir, `${name}.png`), Buffer.from(data, "base64"));
+          writeFileSync(join(outDir, `${name}.srcs.txt`), srcs.join("\n"));
           n++;
         }
       }
     }
   } finally {
-    b.close();
+    await b.close();
   }
   console.log(`captured ${n} shots into ${outDir}`);
 }
@@ -125,6 +157,10 @@ async function compare(dirA, dirB) {
         bad.push(`${f}: missing in ${dirB}`);
         continue;
       }
+      const srcs = f.replace(/\.png$/, ".srcs.txt");
+      try {
+        if (readFileSync(join(dirA, srcs), "utf8") !== readFileSync(join(dirB, srcs), "utf8")) bad.push(`${f}: image sizes/srcs differ (see ${srcs})`);
+      } catch {}
       const mine = readFileSync(join(dirA, f)).toString("base64");
       const r = await b.evaluate(`(async()=>{
         const load=s=>new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src="data:image/png;base64,"+s});
@@ -153,7 +189,7 @@ async function compare(dirA, dirB) {
       }
     }
   } finally {
-    b.close();
+    await b.close();
   }
   if (bad.length) {
     console.log(`${bad.length} of ${files.length} shots differ:\n  ${bad.join("\n  ")}`);

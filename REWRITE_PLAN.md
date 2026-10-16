@@ -38,6 +38,8 @@ node scripts/visual-check.mjs capture .visual/baseline
 node scripts/visual-check.mjs capture .visual/after
 node scripts/visual-check.mjs compare .visual/baseline .visual/after
 npx tsc --noEmit -p . && npx eslint
+# quick check on a few viewports only:
+VC_VIEWPORTS=1440x900,390x844 node scripts/visual-check.mjs capture .visual/quick
 ```
 
 `compare` writes a red `*.diff.png` next to any shot that differs. `.visual/` is
@@ -146,8 +148,11 @@ then replace the default create-next-app README with a short real one.
 
 - [x] Hero polish committed as the baseline (`76959ab`)
 - [x] Plan + `scripts/visual-check.mjs` committed
-- [ ] Confirm visual-check is deterministic (capture twice on the baseline → compare must report "all shots match")
-- [ ] 0. Setup (gitignore, baseline capture, manual baseline run)
+- [x] Confirm visual-check is deterministic (capture twice on the baseline → compare must report "all shots match").
+      Took three fixes: wait for Chrome to exit before cleanup, wait for images to decode,
+      and pin each srcset `<img>` to one candidate (Chrome reused whichever size of the
+      Aangan Estates shot it already held, so cards flipped between runs).
+- [x] 0. Setup (gitignore, baseline capture). The manual baseline run is left to the user (needs a real browser)
 - [ ] 1. lib/
 - [ ] 2. data/profile.ts
 - [ ] 3. MultitudeArt.tsx
