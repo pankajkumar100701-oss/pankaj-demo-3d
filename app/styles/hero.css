@@ -16,3 +16,29 @@
   color: var(--u-muted);
 }
 .u-mobile-cta { flex-wrap: wrap; }
+
+/* Autoplay intro: the hero is blank while autoplay gets ready, then on
+   html[data-intro] everything drops in from above and bounces into place. */
+html[data-autoplay]:not([data-intro]) .u-section :is(.u-copy > *, .u-node > *, .u-halo, .u-orbit, .u-micro, .u-photo, .u-bottom) { opacity: 0; }
+.u-section[data-drop] :is(.u-copy > *, .u-node > *) {
+  animation: u-drop 1.15s linear var(--drop-delay, 0s) backwards;
+}
+.u-section[data-drop] .u-copy > :nth-child(1) { --drop-delay: 0.3s; }
+.u-section[data-drop] .u-copy > :nth-child(2) { --drop-delay: 0.45s; }
+.u-section[data-drop] .u-copy > :nth-child(3) { --drop-delay: 0.65s; }
+.u-section[data-drop] .u-node > * { --drop-delay: calc(0.8s + var(--i) * 0.09s); --drop-r: 9deg; }
+.u-section[data-drop] .u-node:nth-child(even) > * { --drop-r: -7deg; }
+.u-section[data-drop] :is(.u-photo, .u-orbit, .u-micro) { animation: u-fadein 0.9s ease-out backwards; }
+.u-section[data-drop] .u-halo { animation: u-fadein 1.2s ease-out 0.2s backwards, u-breathe 7s ease-in-out infinite; }
+.u-section[data-drop] .u-bottom { animation: u-fadein 0.8s ease-out 2.4s backwards; }
+/* Falls under gravity, lands, then two shrinking bounces. */
+@keyframes u-drop {
+  0% { opacity: 0; translate: 0 -110vh; rotate: var(--drop-r, 0deg); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+  15% { opacity: 1; }
+  58% { translate: 0 0; rotate: 0deg; animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1); }
+  74% { translate: 0 -1.4rem; animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+  86% { translate: 0 0; animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1); }
+  93% { translate: 0 -0.35rem; animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+  100% { translate: 0 0; rotate: 0deg; }
+}
+@keyframes u-fadein { from { opacity: 0; } }

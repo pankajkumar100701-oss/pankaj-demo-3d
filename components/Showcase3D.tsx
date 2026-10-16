@@ -22,10 +22,10 @@ const WORDS = [
   { t: "Cafés", c: "#ffc53d", site: "Saffron Hearth" },
   { t: "Hotels", c: "#38e8ff", site: "Waypoint" },
   { t: "Clinics", c: "#ff4fa3", site: "Still Waters Therapy" },
-  { t: "you.", c: "#f4f1e8", site: "" },
+  { t: "Your brand.", c: "#d7ff3f", site: "" },
 ].map((w) => ({ ...w, image: profile.projects.find((p) => p.title === w.site)?.image }));
 const GAP = 1500; // px between words along the tunnel
-// Ends with "you." held just in front of the camera.
+// Ends with "Your brand." held just in front of the camera.
 const TUNNEL = (WORDS.length - 1) * GAP + 450;
 const wordZ = (i: number) => -i * GAP - 600;
 
@@ -231,6 +231,7 @@ export default function Showcase3D() {
       cancelAnimationFrame(raf);
       raf = 0;
       html.removeAttribute("data-autoplay");
+      html.removeAttribute("data-intro");
     };
     const play = async () => {
       stop();
@@ -251,13 +252,13 @@ export default function Showcase3D() {
       // [seconds, scrollY]: holds where two values match.
       const keys: [number, number][] = [
         [0, 0],
-        // Held while the title and cards float in (the last card lands ~2.3s).
-        [2.6, 0],
+        // Held while the hero drops in from above (the last card lands ~3s).
+        [3.4, 0],
         // Past the dive's end the frame is empty until the ring rises in, so
         // that stretch is crossed quickly rather than held.
-        [7.8, diveEnd + (top - diveEnd) * 0.2],
-        [8.8, top],
-        [15.2, top + 0.33 * T],
+        [8.4, diveEnd + (top - diveEnd) * 0.2],
+        [9.3, top],
+        [15.4, top + 0.33 * T],
         [21.4, top + 0.68 * T],
         [24.8, top + 0.84 * T],
         [27, top + T],
@@ -265,6 +266,7 @@ export default function Showcase3D() {
       ];
       const at = monotone(keys);
       window.scrollTo({ top: 0, behavior: "instant" });
+      html.setAttribute("data-intro", "");
       window.dispatchEvent(new Event(INTRO_EVENT));
       const t0 = performance.now();
       const step = (now: number) => {
@@ -307,9 +309,9 @@ export default function Showcase3D() {
           <div className="s-ring-title">
             <p className="s-kicker">Selected work</p>
             <h2>
-              Twelve worlds,
+              Real businesses,
               <br />
-              <em>one studio.</em>
+              <em>real websites.</em>
             </h2>
           </div>
           <div className="s-ring">

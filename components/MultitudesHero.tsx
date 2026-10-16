@@ -312,16 +312,16 @@ export default function MultitudesHero() {
     };
 
     // Autoplay restarts from the top: snap back to rest (no reverse dive on
-    // camera) and replay the title and cards floating in, as on a fresh load.
+    // camera), then everything drops in from above (data-drop, see hero.css).
     const onIntro = () => {
       onModeChange();
       section.removeAttribute("data-zooming");
-      // (Finished entrances are gone from getAnimations(), so restart them the
-      // CSS way: drop the animation, flush style, put it back.)
-      const els = [...world.querySelectorAll<HTMLElement>(".u-copy > *, .u-node > *")];
-      for (const el of els) el.style.animation = "none";
-      void world.offsetWidth;
-      for (const el of els) el.style.removeProperty("animation");
+      // Just scrolled back up: don't wait for the observer to unpause it.
+      section.removeAttribute("data-offscreen");
+      // Re-adding the attribute restarts the drop on every play.
+      section.removeAttribute("data-drop");
+      void section.offsetWidth;
+      section.setAttribute("data-drop", "");
     };
 
     let alive = true;
