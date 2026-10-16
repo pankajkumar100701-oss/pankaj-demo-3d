@@ -21,16 +21,16 @@
    The animations' backwards fill is what blanks the hero first, so nothing
    can be left hidden once they've run. */
 .u-section[data-drop] :is(.u-copy > *, .u-node > *) {
-  animation: u-drop 1.15s linear var(--drop-delay, 0s) backwards;
+  animation: u-drop 0.95s linear var(--drop-delay, 0s) backwards;
 }
-.u-section[data-drop] .u-copy > :nth-child(1) { --drop-delay: 0.3s; }
-.u-section[data-drop] .u-copy > :nth-child(2) { --drop-delay: 0.45s; }
-.u-section[data-drop] .u-copy > :nth-child(3) { --drop-delay: 0.65s; }
-.u-section[data-drop] .u-node > * { --drop-delay: calc(0.8s + var(--i) * 0.09s); --drop-r: 9deg; }
+.u-section[data-drop] .u-copy > :nth-child(1) { --drop-delay: 0.2s; }
+.u-section[data-drop] .u-copy > :nth-child(2) { --drop-delay: 0.32s; }
+.u-section[data-drop] .u-copy > :nth-child(3) { --drop-delay: 0.48s; }
+.u-section[data-drop] .u-node > * { --drop-delay: calc(0.6s + var(--i) * 0.06s); --drop-r: 9deg; }
 .u-section[data-drop] .u-node:nth-child(even) > * { --drop-r: -7deg; }
 .u-section[data-drop] :is(.u-photo, .u-orbit, .u-micro) { animation: u-fadein 0.9s ease-out backwards; }
 .u-section[data-drop] .u-halo { animation: u-fadein 1.2s ease-out 0.2s backwards, u-breathe 7s ease-in-out infinite; }
-.u-section[data-drop] .u-bottom { animation: u-fadein 0.8s ease-out 2.4s backwards; }
+.u-section[data-drop] .u-bottom { animation: u-fadein 0.7s ease-out 1.8s backwards; }
 /* Falls under gravity, lands, then two shrinking bounces. */
 @keyframes u-drop {
   0% { opacity: 0; translate: 0 -110vh; rotate: var(--drop-r, 0deg); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }

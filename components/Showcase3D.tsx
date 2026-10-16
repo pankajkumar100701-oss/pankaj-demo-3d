@@ -40,13 +40,40 @@ const STREAKS = Array.from({ length: 44 }, () => {
 });
 // Neon frames the camera flies through, each twisted a little further.
 const FRAMES = Array.from({ length: 11 }, (_, i) => ({ z: Math.round(-i * (TUNNEL / 10)) - 300, c: WORDS[i % WORDS.length].c }));
+// Scene 0: a website assembling in a browser. Wireframe pieces (as % of the
+// page: left, top, width, height) fly in from a seeded scatter in 3D.
+const BUILD_SHOT = profile.projects.find((p) => p.title === "Aangan Estates")?.image ?? sites[0].image!;
+const URL_TEXT = "yourbrand.com";
+const STEPS = ["Design", "Build", "Launch"];
+const PIECES = [
+  { k: "nav", l: 3, t: 4, w: 94, h: 8 },
+  { k: "text", l: 5, t: 20, w: 46, h: 10 },
+  { k: "text", l: 5, t: 33, w: 34, h: 10 },
+  { k: "line", l: 5, t: 47, w: 38, h: 4 },
+  { k: "button", l: 5, t: 56, w: 17, h: 8 },
+  { k: "media", l: 56, t: 17, w: 39, h: 48 },
+  { k: "card", l: 3, t: 72, w: 29, h: 22 },
+  { k: "card", l: 35.5, t: 72, w: 29, h: 22 },
+  { k: "card", l: 68, t: 72, w: 29, h: 22 },
+].map((piece) => ({
+  ...piece,
+  x: Math.round((rand() - 0.5) * 1800),
+  y: Math.round((rand() - 0.5) * 1000),
+  z: Math.round(300 + rand() * 900),
+  rx: Math.round((rand() - 0.5) * 140),
+  ry: Math.round((rand() - 0.5) * 140),
+}));
+// The build takes the first part of the pinned scroll; the other three
+// scenes share the rest exactly as before.
+const BUILD = 0.165;
 // The isometric wall: every screenshot twice, in four columns.
 const WALL = [0, 1, 2, 3].map((c) => [...sites, ...sites].filter((_, i) => i % 4 === c));
 
-// After the dive: one pinned stage, three 3D scenes scrubbed by scroll —
-// a ring of my websites the camera flies through, a tunnel of the people I
-// build for, then a tilted wall of work that settles behind the call to action.
-// `?play` (or pressing P) auto-scrolls the whole page in 30s for a recording.
+// After the dive: one pinned stage, four 3D scenes scrubbed by scroll — a
+// website assembling itself in a browser, a ring of my websites the camera
+// flies through, a tunnel of the people I build for, then a tilted wall of
+// work that settles behind the call to action.
+// `?play` (or pressing P) auto-scrolls the whole page in ~27s for a recording.
 export default function Showcase3D() {
   const sectionRef = useRef<HTMLElement>(null);
   const playRef = useRef<() => void>(() => {});
@@ -54,6 +81,16 @@ export default function Showcase3D() {
   useEffect(() => {
     const section = sectionRef.current!;
     const q = <T extends HTMLElement>(s: string) => section.querySelector<T>(s)!;
+    const buildScene = q(".s-scene-build");
+    const browser = q(".s-browser");
+    const pieces = [...section.querySelectorAll<HTMLElement>(".s-piece")];
+    const shot = q(".s-browser-shot");
+    const scan = q(".s-scan");
+    const url = q(".s-url-text");
+    const steps = [...section.querySelectorAll<HTMLElement>(".s-steps span")];
+    const stepsRow = q(".s-steps");
+    let shownUrl = "";
+    let shownStep = -1;
     const ring = q(".s-ring");
     const ringScene = q(".s-scene-ring");
     const ringTitle = q(".s-ring-title");
@@ -108,8 +145,43 @@ export default function Showcase3D() {
 
     const apply = () => {
       const p = cur;
-      const enter = 1 + Math.min(0, p); // 0..1 as the stage arrives
-      const pp = Math.max(0, p);
+      const arrive = 1 + Math.min(0, p); // 0..1 as the stage arrives
+      const bp = clamp01(p / BUILD); // through the build
+      const pp = clamp01((p - BUILD) / (1 - BUILD)); // through the other three
+      // The ring rises in from below as the browser flies off the top.
+      const enter = clamp01((p - BUILD * 0.8) / (BUILD * 0.2));
+
+      // Scene 0: the website builds itself.
+      const bIn = smooth(arrive);
+      const bOut = smooth(seg(bp, 0.76, 0.98));
+      show(buildScene, bIn * (1 - bOut));
+      if (buildScene.style.visibility !== "hidden") {
+        const settle = smooth(seg(bp, 0, 0.45));
+        browser.style.transform = `translateY(${(1 - bIn) * 30 - bOut * 85}vh) translateZ(${(1 - bIn) * -1400 - bOut * 600}px) rotateX(${lerp(30, 8, settle) - bOut * 30}deg) rotateY(${lerp(-16, 7, bp)}deg) rotateZ(${(1 - bIn) * -5}deg)`;
+        const shotT = smooth(seg(bp, 0.44, 0.62));
+        pieces.forEach((el, i) => {
+          const { x, y, z, rx, ry } = PIECES[i];
+          const a = 0.03 + i * 0.032;
+          const t = smooth(seg(bp, a, a + 0.17));
+          const u = 1 - t;
+          el.style.transform = `translate3d(${x * u}px, ${y * u}px, ${z * u}px) rotateX(${rx * u}deg) rotateY(${ry * u}deg)`;
+          fade(el, shotT >= 1 ? 0 : 0.3 + 0.7 * t);
+        });
+        // The real site renders over the wireframe, top to bottom.
+        show(shot, shotT);
+        shot.style.clipPath = `inset(0 0 ${((1 - shotT) * 100).toFixed(2)}% 0)`;
+        scan.style.top = `${(shotT * 100).toFixed(2)}%`;
+        fade(scan, shotT > 0 && shotT < 1 ? 1 : 0);
+        const typed = URL_TEXT.slice(0, Math.round(seg(bp, 0.6, 0.74) * URL_TEXT.length));
+        if (typed !== shownUrl) url.textContent = shownUrl = typed;
+        browser.toggleAttribute("data-live", bp > 0.76);
+        const step = bp < 0.44 ? 0 : bp < 0.7 ? 1 : 2;
+        if (step !== shownStep) {
+          shownStep = step;
+          steps.forEach((el, i) => el.toggleAttribute("data-on", i <= step));
+        }
+        stepsRow.style.opacity = (smooth(seg(arrive, 0.5, 1)) * (1 - smooth(seg(bp, 0.74, 0.86)))).toFixed(3);
+      }
 
       // Scene 1: the ring.
       const rIn = smooth(enter);
@@ -187,8 +259,8 @@ export default function Showcase3D() {
       cta.style.transform = `translateZ(${(1 - cIn) * -500}px) rotateX(${(1 - cIn) * -30}deg)`;
       cta.toggleAttribute("data-in", cIn > 0.5);
 
-      bar.style.transform = `scaleX(${pp})`;
-      const n = pp < 0.34 ? "01" : pp < 0.68 ? "02" : "03";
+      bar.style.transform = `scaleX(${Math.max(0, p)})`;
+      const n = p < BUILD ? "01" : pp < 0.34 ? "02" : pp < 0.68 ? "03" : "04";
       if (n !== shownCount) count.textContent = shownCount = n;
     };
 
@@ -249,19 +321,22 @@ export default function Showcase3D() {
       const top = show.offsetTop;
       const T = show.offsetHeight - vh;
       // [seconds, scrollY]: holds where two values match.
+      // Where each of the last three scenes' marks sits in the pinned scroll.
+      const at3 = (v: number) => top + (BUILD + v * (1 - BUILD)) * T;
       const keys: [number, number][] = [
         [0, 0],
-        // Held while the hero drops in from above (the last card lands ~3s).
-        [3.4, 0],
-        // Past the dive's end the frame is empty until the ring rises in, so
-        // that stretch is crossed quickly rather than held.
-        [8.4, diveEnd + (top - diveEnd) * 0.2],
-        [9.3, top],
-        [15.4, top + 0.33 * T],
-        [21.4, top + 0.68 * T],
-        [24.8, top + 0.84 * T],
-        [27, top + T],
-        [30, top + T],
+        // Held while the hero drops in from above (the last card lands ~2.3s).
+        [2.6, 0],
+        // Past the dive's end the browser is still far off, so that stretch
+        // is crossed quickly rather than held.
+        [6, diveEnd + (top - diveEnd) * 0.2],
+        [6.9, top],
+        [10.6, top + BUILD * T],
+        [15.2, at3(0.33)],
+        [20, at3(0.68)],
+        [22.8, at3(0.84)],
+        [24.6, at3(1)],
+        [27.5, at3(1)],
       ];
       const at = monotone(keys);
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -302,6 +377,43 @@ export default function Showcase3D() {
     </button>
     <section ref={sectionRef} id="showcase" className="s-section" aria-label="Selected work">
       <div className="s-stage">
+        {/* 0 · A website builds itself */}
+        <div className="s-scene s-scene-build" aria-hidden>
+          <p className="s-steps">
+            {STEPS.map((step, i) => (
+              <span key={step}>
+                <b>{String(i + 1).padStart(2, "0")}</b> {step}
+              </span>
+            ))}
+          </p>
+          <div className="s-browser">
+            <div className="s-browser-bar">
+              <i />
+              <i />
+              <i />
+              <span className="s-url">
+                <span className="s-url-lock">●</span>
+                <span className="s-url-text" />
+                <span className="s-url-caret" />
+              </span>
+              <span className="s-url-live">Live</span>
+            </div>
+            <div className="s-browser-body">
+              {PIECES.map((piece, i) => (
+                <i
+                  key={i}
+                  className={`s-piece s-piece-${piece.k}`}
+                  style={{ left: `${piece.l}%`, top: `${piece.t}%`, width: `${piece.w}%`, height: `${piece.h}%` }}
+                />
+              ))}
+              <div className="s-browser-shot">
+                <Image src={BUILD_SHOT} alt="" fill loading="eager" sizes="60vw" className="object-cover object-top" />
+              </div>
+              <i className="s-scan" />
+            </div>
+          </div>
+        </div>
+
         {/* 1 · Ring of websites */}
         <div className="s-scene s-scene-ring">
           <div className="s-ring-title">
@@ -398,7 +510,7 @@ export default function Showcase3D() {
 
         <div className="s-hud" aria-hidden>
           <span>
-            <span className="s-count">01</span> / 03
+            <span className="s-count">01</span> / 04
           </span>
           <span className="s-bar">
             <i />
