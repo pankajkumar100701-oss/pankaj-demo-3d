@@ -414,8 +414,10 @@ export default function MultitudesHero() {
     const section = sectionRef.current!;
     const em = section.querySelector<HTMLElement>(".u-copy h1 em");
     let visible = true;
-    const io = new IntersectionObserver(([e]) => {
-      visible = e.isIntersecting;
+    // Several entries can queue up (e.g. autoplay jumping back to the top):
+    // the last one is the current state.
+    const io = new IntersectionObserver((entries) => {
+      visible = entries[entries.length - 1].isIntersecting;
       section.toggleAttribute("data-offscreen", !visible);
     });
     io.observe(section);

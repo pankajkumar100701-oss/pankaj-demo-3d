@@ -17,9 +17,9 @@
 }
 .u-mobile-cta { flex-wrap: wrap; }
 
-/* Autoplay intro: the hero is blank while autoplay gets ready, then on
-   html[data-intro] everything drops in from above and bounces into place. */
-html[data-autoplay]:not([data-intro]) .u-section :is(.u-copy > *, .u-node > *, .u-halo, .u-orbit, .u-micro, .u-photo, .u-bottom) { opacity: 0; }
+/* Autoplay intro: everything drops in from above and bounces into place.
+   The animations' backwards fill is what blanks the hero first, so nothing
+   can be left hidden once they've run. */
 .u-section[data-drop] :is(.u-copy > *, .u-node > *) {
   animation: u-drop 1.15s linear var(--drop-delay, 0s) backwards;
 }

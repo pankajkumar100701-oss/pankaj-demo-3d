@@ -231,7 +231,6 @@ export default function Showcase3D() {
       cancelAnimationFrame(raf);
       raf = 0;
       html.removeAttribute("data-autoplay");
-      html.removeAttribute("data-intro");
     };
     const play = async () => {
       stop();
@@ -266,7 +265,6 @@ export default function Showcase3D() {
       ];
       const at = monotone(keys);
       window.scrollTo({ top: 0, behavior: "instant" });
-      html.setAttribute("data-intro", "");
       window.dispatchEvent(new Event(INTRO_EVENT));
       const t0 = performance.now();
       const step = (now: number) => {

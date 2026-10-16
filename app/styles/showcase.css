@@ -50,16 +50,7 @@
 }
 
 /* 1 · Ring */
-/* Flat, so the title is painted over the cards instead of cutting through the ring. */
-.s-scene-ring { transform-style: flat; }
-.s-ring-title { position: absolute; text-align: center; z-index: 2; pointer-events: none; text-shadow: 0 10px 40px rgb(0 0 0 / 0.6); }
-.s-ring-title::before {
-  content: "";
-  position: absolute;
-  inset: -40% -25%;
-  z-index: -1;
-  background: radial-gradient(closest-side, rgb(7 9 13 / 0.85), rgb(7 9 13 / 0.5) 60%, transparent);
-}
+.s-ring-title { position: absolute; text-align: center; z-index: 1; pointer-events: none; text-shadow: 0 10px 40px rgb(0 0 0 / 0.6); }
 .s-ring {
   --w: 15vw;
   --r: calc(var(--w) * 2.15);
