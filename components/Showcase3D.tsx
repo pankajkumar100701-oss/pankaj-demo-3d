@@ -48,6 +48,7 @@ const WALL = [0, 1, 2, 3].map((c) => [...sites, ...sites].filter((_, i) => i % 4
 // `?play` (or pressing P) auto-scrolls the whole page in 30s for a recording.
 export default function Showcase3D() {
   const sectionRef = useRef<HTMLElement>(null);
+  const playRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const section = sectionRef.current!;
@@ -241,8 +242,10 @@ export default function Showcase3D() {
       const keys: [number, number][] = [
         [0, 0],
         [2, 0],
-        [10.4, diveEnd],
-        [12.2, top],
+        // Past the dive's end the frame is empty until the ring rises in, so
+        // that stretch is crossed quickly rather than held.
+        [10.4, diveEnd + (top - diveEnd) * 0.2],
+        [11.6, top],
         [17.6, top + 0.33 * T],
         [22.4, top + 0.68 * T],
         [25.8, top + 0.84 * T],
@@ -265,16 +268,27 @@ export default function Showcase3D() {
       if (e.key === "p" || e.key === "P") play();
       if (e.key === "Escape") stop();
     };
+    // Grabbing the wheel or touching the screen hands control back.
+    const interrupt = () => raf && stop();
+    playRef.current = play;
     window.addEventListener("keydown", onKey);
+    window.addEventListener("wheel", interrupt, { passive: true });
+    window.addEventListener("touchstart", interrupt, { passive: true });
     const auto = new URLSearchParams(location.search).has("play") ? window.setTimeout(play, 1200) : 0;
     return () => {
       clearTimeout(auto);
       stop();
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("wheel", interrupt);
+      window.removeEventListener("touchstart", interrupt);
     };
   }, []);
 
   return (
+    <>
+    <button type="button" className="s-play" onClick={() => playRef.current()}>
+      <span aria-hidden>▶</span> Auto play
+    </button>
     <section ref={sectionRef} id="showcase" className="s-section" aria-label="Selected work">
       <div className="s-stage">
         {/* 1 · Ring of websites */}
@@ -361,7 +375,7 @@ export default function Showcase3D() {
               <em>next.</em>
             </h2>
             <div className="s-cta-row">
-              <a href="/contact" className="u-cta-primary s-btn">
+              <a href={`mailto:${profile.contact.email}`} className="u-cta-primary s-btn">
                 Let&apos;s build it <span aria-hidden>→</span>
               </a>
               <a href={`mailto:${profile.contact.email}`} className="u-cta-ghost s-btn">
@@ -382,6 +396,7 @@ export default function Showcase3D() {
         </div>
       </div>
     </section>
+    </>
   );
 }
 

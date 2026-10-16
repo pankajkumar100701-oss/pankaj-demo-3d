@@ -222,6 +222,32 @@
 .s-bar { flex: 1; height: 1px; background: var(--u-line); overflow: hidden; }
 .s-bar i { display: block; height: 100%; background: var(--u-acid); transform-origin: left; transform: scaleX(0); }
 
+/* Auto-play button: hidden while it plays so it stays out of the recording. */
+.s-play {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 4.5rem;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1.2rem;
+  border: 1px solid var(--u-acid);
+  border-radius: 999px;
+  background: color-mix(in srgb, #000 70%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--u-acid);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 30px -8px var(--u-acid);
+  transition: transform 0.2s, background 0.2s, color 0.2s;
+}
+.s-play:hover { transform: translateY(-2px); background: var(--u-acid); color: #000; }
+html[data-autoplay] .s-play { opacity: 0; pointer-events: none; }
+
 /* Recording: no cursor, no scrollbar. */
 html[data-autoplay], html[data-autoplay] * { cursor: none !important; }
 html { scrollbar-width: none; }
@@ -233,4 +259,5 @@ html::-webkit-scrollbar { display: none; }
   .s-cta { padding: 2rem 1rem; }
   .s-cta-row { flex-direction: column; align-items: center; }
   .s-hud { padding: 1rem; }
+  .s-play { right: 1rem; bottom: 3.5rem; }
 }

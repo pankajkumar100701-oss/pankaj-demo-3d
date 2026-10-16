@@ -8,7 +8,7 @@ export type MultitudeArt = { from: string; to: string; ink: string; icon: ReactN
 const p = (d: string) => <path d={d} pathLength={1} />;
 
 export const MULTITUDE_ART: Record<string, MultitudeArt> = {
-  // The hero's 3D demos card (not a type; opens /templates).
+  // The hero's 3D demos card (not a type).
   "3d": {
     from: "#5ee7ff",
     to: "#4f2bd8",

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, type CSSProperties } from "react";
-import Link from "next/link";
 import { ArtIcon, artIcon, artVars } from "@/components/MultitudeArt";
 import { profile } from "@/data/profile";
 import { motionReduced, PREFS_EVENT } from "@/lib/prefs";
@@ -428,7 +427,7 @@ export default function MultitudesHero() {
   // the dot can be measured and dived into.
   const iAt = hero.accent.indexOf("i");
   // The websites I've built (the trending ones, as pills), then the way into every website type
-  // (/explore): under the title on phones (so it's on the first screen), in
+  // (#showcase): under the title on phones (so it's on the first screen), in
   // the bottom bar on desktop (where the cards leave no room under the title).
   // The list hides until profile.trendingSites names a project.
   // Only the trending websites (profile.trendingSites, max 5) show here.
@@ -452,9 +451,9 @@ export default function MultitudesHero() {
           </ul>
         </>
       )}
-      <Link prefetch={false} href="/explore" className="u-sites-explore">
+      <a href="#showcase" className="u-sites-explore">
         Explore your type <span aria-hidden>→</span>
-      </Link>
+      </a>
     </>
   );
 
@@ -514,7 +513,7 @@ export default function MultitudesHero() {
                   const style = { "--x": `${m.x}%`, "--y": `${m.y}%`, "--c": m.color, "--i": i, ...artVars(m.slug, m.color) } as CSSProperties;
                   return (
                     <li key={m.n} className="u-node" style={style}>
-                      <Link prefetch={false} href={`/websites/${m.slug}`}>
+                      <a href="#showcase">
                         {/* Hover floods the card with its gradient and draws its icon. */}
                         <span className="u-node-flood" aria-hidden />
                         <span className="u-node-icon" aria-hidden>
@@ -523,13 +522,13 @@ export default function MultitudesHero() {
                         <b>{m.n}</b>
                         <strong>{m.title}</strong>
                         <small>{m.sub}</small>
-                      </Link>
+                      </a>
                     </li>
                   );
                 })}
                 {/* Not a business type: my 3D / WebGL demos, under Coaching / Education. */}
                 <li className="u-node u-node-3d" style={{ "--x": "4%", "--y": "82%", "--c": "var(--m-blue)", "--i": multitudes.length, ...artVars("3d", "var(--m-blue)") } as CSSProperties}>
-                  <Link prefetch={false} href="/templates">
+                  <a href="#showcase">
                     <span className="u-node-flood" aria-hidden />
                     <span className="u-node-icon" aria-hidden>
                       <ArtIcon icon={artIcon("3d")} />
@@ -537,16 +536,16 @@ export default function MultitudesHero() {
                     <b>13</b>
                     <strong>3D Websites</strong>
                     <small>WebGL / Motion / Live demos</small>
-                  </Link>
+                  </a>
                 </li>
               </ul>
 
               {/* Phones skip the dive, so the arrival's call to action lives here
                   ("Explore your type" is already under the title). */}
               <div className="u-mobile-cta">
-                <Link prefetch={false} href="/contact" className="u-cta-primary">
+                <a href={`mailto:${profile.contact.email}`} className="u-cta-primary">
                   Customise your website plan <span aria-hidden>→</span>
-                </Link>
+                </a>
                 <a href={`mailto:${profile.contact.email}`} className="u-cta-ghost">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="u-mail" aria-hidden>
                     <rect x="3" y="5" width="18" height="14" rx="2" />
