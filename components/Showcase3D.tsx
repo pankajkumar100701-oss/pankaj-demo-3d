@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type CSSProperties } from "react";
 import Image from "next/image";
+import { INTRO_EVENT } from "@/components/MultitudesHero";
 import { findType, profile } from "@/data/profile";
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -223,14 +224,23 @@ export default function Showcase3D() {
   // Autoplay for the screen recording.
   useEffect(() => {
     let raf = 0;
+    let run = 0; // bumped on every play/stop, so a stale start is dropped
     const html = document.documentElement;
     const stop = () => {
+      run++;
       cancelAnimationFrame(raf);
       raf = 0;
       html.removeAttribute("data-autoplay");
     };
-    const play = () => {
+    const play = async () => {
       stop();
+      const me = run;
+      html.setAttribute("data-autoplay", "");
+      // Decode every screenshot first, so none pops in or stalls a frame
+      // mid-recording (capped, in case one never loads).
+      const imgs = [...sectionRef.current!.querySelectorAll("img")];
+      await Promise.race([Promise.all(imgs.map((i) => i.decode().catch(() => {}))), new Promise((r) => setTimeout(r, 2500))]);
+      if (me !== run) return;
       const vh = window.innerHeight;
       const hero = document.querySelector<HTMLElement>(".u-section")!;
       const show = sectionRef.current!;
@@ -241,20 +251,21 @@ export default function Showcase3D() {
       // [seconds, scrollY]: holds where two values match.
       const keys: [number, number][] = [
         [0, 0],
-        [2, 0],
+        // Held while the title and cards float in (the last card lands ~2.3s).
+        [2.6, 0],
         // Past the dive's end the frame is empty until the ring rises in, so
         // that stretch is crossed quickly rather than held.
-        [10.4, diveEnd + (top - diveEnd) * 0.2],
-        [11.6, top],
-        [17.6, top + 0.33 * T],
-        [22.4, top + 0.68 * T],
-        [25.8, top + 0.84 * T],
-        [27.6, top + T],
+        [7.8, diveEnd + (top - diveEnd) * 0.2],
+        [8.8, top],
+        [15.2, top + 0.33 * T],
+        [21.4, top + 0.68 * T],
+        [24.8, top + 0.84 * T],
+        [27, top + T],
         [30, top + T],
       ];
       const at = monotone(keys);
-      html.setAttribute("data-autoplay", "");
       window.scrollTo({ top: 0, behavior: "instant" });
+      window.dispatchEvent(new Event(INTRO_EVENT));
       const t0 = performance.now();
       const step = (now: number) => {
         const t = (now - t0) / 1000;
@@ -335,7 +346,7 @@ export default function Showcase3D() {
                   className="s-fly"
                   style={{ "--c": w.c, transform: `translate3d(${i % 2 ? -560 : 560}px, ${i % 3 ? 140 : -160}px, ${wordZ(i) - 250}px) rotateY(${i % 2 ? 32 : -32}deg) rotateZ(${i % 2 ? 4 : -4}deg)` } as CSSProperties}
                 >
-                  <Image src={w.image} alt="" fill sizes="520px" className="object-cover object-top" />
+                  <Image src={w.image} alt="" fill loading="eager" sizes="520px" className="object-cover object-top" />
                 </div>
               ) : null,
             )}

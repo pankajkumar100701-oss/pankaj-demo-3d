@@ -8,7 +8,10 @@ import { motionReduced, PREFS_EVENT } from "@/lib/prefs";
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smooth = (v: number) => v * v * (3 - 2 * v);
 
-const PORTAL_STEP = Math.log(1.08); // the dive's ring is re-drawn every 8% of growth
+// Fired by Showcase3D's autoplay once it has scrolled back to the top.
+export const INTRO_EVENT = "demo:intro";
+
+const PORTAL_STEP =Math.log(1.08); // the dive's ring is re-drawn every 8% of growth
 
 // Places the dot exactly where the rendered font draws its tittle. The serif
 // (or its fallback, while it loads) can vary, so its "i" is drawn to a canvas
@@ -308,6 +311,19 @@ export default function MultitudesHero() {
       }
     };
 
+    // Autoplay restarts from the top: snap back to rest (no reverse dive on
+    // camera) and replay the title and cards floating in, as on a fresh load.
+    const onIntro = () => {
+      onModeChange();
+      section.removeAttribute("data-zooming");
+      // (Finished entrances are gone from getAnimations(), so restart them the
+      // CSS way: drop the animation, flush style, put it back.)
+      const els = [...world.querySelectorAll<HTMLElement>(".u-copy > *, .u-node > *")];
+      for (const el of els) el.style.animation = "none";
+      void world.offsetWidth;
+      for (const el of els) el.style.removeProperty("animation");
+    };
+
     let alive = true;
     const fit = () => {
       fitDot(dot.parentElement!, dot);
@@ -331,7 +347,9 @@ export default function MultitudesHero() {
     window.addEventListener("resize", onResize);
     wide.addEventListener("change", onModeChange);
     window.addEventListener(PREFS_EVENT, onModeChange);
+    window.addEventListener(INTRO_EVENT, onIntro);
     return () => {
+      window.removeEventListener(INTRO_EVENT, onIntro);
       alive = false;
       cancelAnimationFrame(frame);
       ro.disconnect();
