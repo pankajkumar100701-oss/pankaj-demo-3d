@@ -153,8 +153,10 @@ then replace the default create-next-app README with a short real one.
       and pin each srcset `<img>` to one candidate (Chrome reused whichever size of the
       Aangan Estates shot it already held, so cards flipped between runs).
 - [x] 0. Setup (gitignore, baseline capture). The manual baseline run is left to the user (needs a real browser)
-- [ ] 1. lib/
-- [ ] 2. data/profile.ts
+- [x] 1. lib/ (tsc + eslint pass, `prefsScript` byte-identical; dead `playExit`, `measureFps`, `pageMeta` dropped).
+      **Screenshot compare still pending**: run it before step 3.
+- [x] 2. data/profile.ts (content arrays lifted into typed consts; every exported value
+      checked byte-identical against the old file). **Screenshot compare still pending.**
 - [ ] 3. MultitudeArt.tsx
 - [ ] 4. Shell components
 - [ ] 5. CSS restructure + dead CSS removal
