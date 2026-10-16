@@ -104,11 +104,11 @@ export default function MultitudesHero() {
     const readout = readoutRef.current!;
     const nodes = world.querySelector<HTMLElement>(".u-nodes")!;
     const outsideEls = stage.querySelectorAll<HTMLElement>(".u-vignette, .u-bottom");
-    // Everything that clears out early (cards, glow, orbits, micro labels):
+    // Everything that clears out early (cards, glow, orbits):
     // once invisible it's hidden too, so it isn't re-rastered at huge scale.
     // The logo mark and the studio photo behind the hero go with them, so the
     // hole opens onto the cosmos (and the mark isn't rastered at 100×).
-    const early = [nodes, ...world.querySelectorAll<HTMLElement>(".u-halo, .u-orbit, .u-micro, .u-mark"), ...scene.querySelectorAll<HTMLElement>(".u-photo")];
+    const early = [nodes, ...world.querySelectorAll<HTMLElement>(".u-halo, .u-orbit, .u-mark"), ...scene.querySelectorAll<HTMLElement>(".u-photo")];
     // The fixed backdrop layer behind the page (Cosmos). The dive's hole is
     // this layer clipped to a circle; the hero itself has no backdrop here.
     // Looked up on use, not captured: the layer can be re-created (e.g. by a
@@ -524,6 +524,18 @@ export default function MultitudesHero() {
                   </span>
                 </h1>
                 <p className="u-subline">{hero.subline}</p>
+                {/* Desktop: the hero's own call to action (phones have .u-mobile-cta). */}
+                <div className="u-hero-cta">
+                  <a href={`mailto:${profile.contact.email}`} className="u-cta-primary">
+                    Start your project <span aria-hidden>→</span>
+                  </a>
+                  <a href="#showcase" className="u-cta-ghost">
+                    Explore your type <span aria-hidden>↓</span>
+                  </a>
+                  <span className="u-open">
+                    <i className="u-live" aria-hidden /> Open for new projects
+                  </span>
+                </div>
                 {/* Phones: my websites and "Explore your type" sit under the title (desktop has them in the bottom bar). */}
                 <div className="u-sites u-sites-mobile">{sites}</div>
               </div>
@@ -547,7 +559,7 @@ export default function MultitudesHero() {
                   );
                 })}
                 {/* Not a business type: my 3D / WebGL demos, under Coaching / Education. */}
-                <li className="u-node u-node-3d" style={{ "--x": "4%", "--y": "82%", "--c": "var(--m-blue)", "--i": multitudes.length, ...artVars("3d", "var(--m-blue)") } as CSSProperties}>
+                <li className="u-node u-node-3d" style={{ "--x": "4%", "--y": "81%", "--c": "var(--m-blue)", "--i": multitudes.length, ...artVars("3d", "var(--m-blue)") } as CSSProperties}>
                   <a href="#showcase">
                     <span className="u-node-flood" aria-hidden />
                     <span className="u-node-icon" aria-hidden>
@@ -577,9 +589,6 @@ export default function MultitudesHero() {
                 </p>
               </div>
 
-              <span className="u-micro u-m1" aria-hidden>CREATIVE</span>
-              <span className="u-micro u-m2" aria-hidden>CURIOUS</span>
-              <span className="u-micro u-m3" aria-hidden>BUILDING</span>
             </div>
           </div>
         </div>

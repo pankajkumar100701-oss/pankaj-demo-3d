@@ -26,9 +26,10 @@
 .u-section[data-drop] .u-copy > :nth-child(1) { --drop-delay: 0.2s; }
 .u-section[data-drop] .u-copy > :nth-child(2) { --drop-delay: 0.32s; }
 .u-section[data-drop] .u-copy > :nth-child(3) { --drop-delay: 0.48s; }
+.u-section[data-drop] .u-copy > :nth-child(4) { --drop-delay: 0.58s; }
 .u-section[data-drop] .u-node > * { --drop-delay: calc(0.6s + var(--i) * 0.06s); --drop-r: 9deg; }
 .u-section[data-drop] .u-node:nth-child(even) > * { --drop-r: -7deg; }
-.u-section[data-drop] :is(.u-photo, .u-orbit, .u-micro) { animation: u-fadein 0.9s ease-out backwards; }
+.u-section[data-drop] :is(.u-photo, .u-orbit) { animation: u-fadein 0.9s ease-out backwards; }
 .u-section[data-drop] .u-halo { animation: u-fadein 1.2s ease-out 0.2s backwards, u-breathe 7s ease-in-out infinite; }
 .u-section[data-drop] .u-bottom { animation: u-fadein 0.7s ease-out 1.8s backwards; }
 /* Falls under gravity, lands, then two shrinking bounces. */
@@ -42,3 +43,93 @@
   100% { translate: 0 0; rotate: 0deg; }
 }
 @keyframes u-fadein { from { opacity: 0; } }
+
+/* ---------- Hero polish ----------
+   This file is imported ahead of globals.css's hero block, so these rules
+   carry a .u-section prefix to win over the base styles they refine. */
+
+/* Eyebrow: a hairline either side, so it reads as a label, not loose text. */
+.u-section .u-eyebrow { display: flex; align-items: center; justify-content: center; gap: 0.875rem; }
+.u-section .u-eyebrow::before,
+.u-section .u-eyebrow::after { content: ""; width: 2.25rem; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--u-acid) 70%, transparent)); }
+.u-section .u-eyebrow::after { scale: -1 1; }
+
+/* Short laptop screens: the title also scales with height, so the copy and
+   its buttons keep clear of the card frame. */
+.u-section .u-copy h1 { font-size: clamp(3.875rem, min(9vw, 14svh), 9rem); }
+
+/* The subline was dim italic on a busy photo: brighter, a touch larger. */
+.u-section .u-subline { margin-top: 1.375rem; font-size: 1.1875rem; color: var(--u-soft); text-shadow: 0 1px 12px rgb(0 0 0 / 0.6); }
+[data-theme="light"] .u-section .u-subline { text-shadow: none; }
+
+/* Desktop call to action under the title. The copy block ignores the
+   pointer (so the dive's dot area never steals hovers), the buttons opt in. */
+.u-hero-cta {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  font-family: var(--font-sans);
+}
+.u-hero-cta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.45rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  pointer-events: auto;
+  transition: translate 0.25s, box-shadow 0.25s, background 0.25s, border-color 0.25s;
+}
+.u-hero-cta .u-cta-primary { box-shadow: 0 0 0 1px color-mix(in srgb, var(--u-acid) 60%, transparent), 0 10px 34px -12px color-mix(in srgb, var(--u-acid) 70%, transparent); }
+.u-hero-cta .u-cta-primary:hover { box-shadow: 0 0 0 1px var(--u-acid), 0 14px 40px -10px color-mix(in srgb, var(--u-acid) 80%, transparent); }
+.u-hero-cta .u-cta-ghost:hover { border-color: color-mix(in srgb, var(--u-fg) 45%, transparent); }
+.u-hero-cta a:focus-visible { outline: 2px solid var(--u-acid); outline-offset: 3px; }
+.u-hero-cta .u-open { flex: 1 1 100%; margin-top: 0.375rem; }
+@media (min-width: 800px) {
+  .u-hero-cta { display: flex; }
+  /* The hero now has its own "Explore your type": keep the bottom bar quiet. */
+  .u-bottom .u-sites-explore { display: none; }
+  /* Lite motion stacks the hero and shows the phone buttons instead. */
+  :root[data-motion="reduce"] .u-hero-cta { display: none; }
+}
+
+/* Cards: rounded glass tiles with a soft tint of their colour, an accent
+   edge, and their icon showing at rest (it used to appear only on hover). */
+.u-section .u-node > *,
+.u-section .u-node > *::before,
+.u-section .u-node > *::after,
+.u-section .u-node-flood { border-radius: 0.875rem; }
+.u-section .u-node > * {
+  overflow: hidden;
+  padding: 0.875rem 2.75rem 0.9375rem 1rem;
+  border: 1px solid var(--u-line);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--c) 75%, transparent), 0 14px 40px -22px rgb(0 0 0 / 0.8);
+}
+:root:not([data-theme="light"]) .u-section .u-node > * {
+  border-color: rgb(255 255 255 / 0.09);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--c) 13%, transparent), transparent 60%),
+    linear-gradient(180deg, rgb(22 24 31 / 0.88), rgb(11 13 18 / 0.9));
+}
+.u-section .u-node-icon { top: 0.875rem; right: 0.875rem; width: 1.25rem; height: 1.25rem; color: var(--ink); opacity: 0.6; }
+.u-section .u-node-icon svg * { stroke-dashoffset: 0; }
+.u-section .u-node:is(:hover, :focus-within) .u-node-icon { color: var(--art-ink); }
+@media (max-width: 799px) {
+  .u-section .u-eyebrow::before, .u-section .u-eyebrow::after { display: none; }
+  .u-section .u-node > * { padding: 0.875rem 2.5rem 0.9375rem 0.875rem; }
+  .u-section .u-node-icon { top: 0.75rem; right: 0.75rem; width: 1.125rem; height: 1.125rem; }
+}
+/* Small laptops / tablets in landscape (800-1199px): the cards wrap here, so
+   they're slimmer, the subline wraps under the title instead of running
+   behind them, and the bottom bar drops the project pills it can't fit. */
+@media (min-width: 800px) and (max-width: 1199px) {
+  .u-section .u-subline { max-width: 25rem; margin-inline: auto; font-size: 1.0625rem; white-space: normal; }
+  .u-section .u-node > * { width: 9.75rem; padding: 0.75rem 2.25rem 0.8125rem 0.875rem; }
+  .u-section .u-node strong { font-size: 0.9375rem; }
+  .u-section .u-node-icon { top: 0.75rem; right: 0.75rem; width: 1rem; height: 1rem; }
+  .u-bottom .u-sites { display: none; }
+}
