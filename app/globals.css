@@ -478,12 +478,13 @@ body {
   position: absolute;
   inset: 0;
   z-index: 0;
-  will-change: transform;
   pointer-events: none;
   opacity: 0.04;
   /* Pre-rendered tile of the old SVG fractal noise: an feTurbulence filter
      sized to the screen was re-rastered whenever its layer changed, which
-     stalled the dive's late frames. Same look, a 16 KB image. */
+     stalled the dive's late frames. Same look, a 16 KB image. Not its own
+     layer: as one (will-change) it doubled the dive's dropped frames on an
+     integrated GPU; as a plain tiled image it costs next to nothing. */
   background-image: url("/textures/grain.png");
   background-size: 67.5rem;
 }
@@ -531,9 +532,10 @@ body {
   position: relative;
   width: min(76rem, 92vw);
   height: min(46rem, 80svh);
-  /* The zoom is strictly 2D (no perspective / preserve-3d / will-change): Chrome
-     rasters anything under a perspective at 1× and stretches the bitmap, which
-     pixelates the type. Plain 2D scale is re-painted as vectors every frame. */
+  /* The zoom is strictly 2D (no perspective / preserve-3d): Chrome rasters
+     anything under a perspective at 1× and stretches the bitmap, which
+     pixelates the type. At rest it isn't a layer either; during the dive it
+     is one (see [data-zooming] below). */
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
 }
@@ -638,6 +640,15 @@ body {
 .u-section[data-offscreen] *::before,
 .u-section[data-offscreen] *::after { animation-play-state: paused !important; }
 .u-section[data-zooming] :is(.u-copy h1 em, .u-halo, .u-node, .u-orb) { animation-play-state: paused; }
+/* Mid-dive the world is its own layer, so a frame moves a bitmap on the GPU
+   instead of re-painting the giant title (Chrome re-rasters it as the scale
+   grows, so the type stays sharp). Everything that fades while the world
+   zooms gets a layer too: an opacity change painted into the world would
+   invalidate it and bring the per-frame re-paint right back. On an
+   integrated GPU this took 3–12× from ~20fps to 60. At rest none of these are
+   layers, so the resting page costs nothing extra. */
+.u-section[data-zooming] .u-world { will-change: transform; }
+.u-section[data-zooming] :is(.u-nodes, .u-halo, .u-orbit, .u-mark, .u-photo) { will-change: opacity; }
 
 /* The dot, taken over: a disk with the same colour/centre/radius that hollows
    out from the middle into a thin ring (the hole clipped into the cosmos layer matches its inner edge). */
@@ -651,6 +662,8 @@ body {
   box-sizing: border-box;
   border: 0 solid var(--u-paper);
   border-radius: 50%;
+  /* The veil over the newly opened hole (--veil-* set from MultitudesHero). */
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--u-paper) var(--veil-in, 0%), transparent), color-mix(in srgb, var(--u-paper) var(--veil-out, 0%), transparent));
   opacity: 0;
   pointer-events: none;
 }

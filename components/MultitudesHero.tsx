@@ -75,11 +75,11 @@ function fitDot(span: HTMLElement, dot: HTMLElement) {
   dot.style.width = dot.style.height = `${size / S}em`;
 }
 
-// Scroll-driven dive into the dot of the "i": the stage stays pinned while you
-// scroll through the section, the camera centres on the dot and zooms into it
-// exponentially (constant perceived speed). The dot is handed off to a portal
-// disk that hollows out into a ring, punching a hole through the hero to the
-// cosmos behind it — the rest of the site lives inside the dot. Desktop +
+// Scroll-driven dive: the stage stays pinned while you scroll through the
+// section, and the camera zooms into the centre of the frame
+// exponentially (constant perceived speed). A portal disk opens there and
+// hollows out into a ring, punching a hole through the hero to the cosmos
+// behind it — the rest of the site lives inside it. Desktop +
 // motion-allowed only; elsewhere it's static.
 //
 // Everything is a 2D transform on purpose: anything under a CSS perspective is
@@ -103,6 +103,8 @@ export default function MultitudesHero() {
     const portal = portalRef.current!;
     const readout = readoutRef.current!;
     const nodes = world.querySelector<HTMLElement>(".u-nodes")!;
+    const title = world.querySelector<HTMLElement>(".u-copy h1")!;
+    const subline = world.querySelector<HTMLElement>(".u-subline")!;
     const outsideEls = stage.querySelectorAll<HTMLElement>(".u-vignette, .u-bottom");
     // Everything that clears out early (cards, glow, orbits):
     // once invisible it's hidden too, so it isn't re-rastered at huge scale.
@@ -139,15 +141,20 @@ export default function MultitudesHero() {
       const s = stage.getBoundingClientRect();
       const w = world.getBoundingClientRect();
       const d = dot.getBoundingClientRect();
+      const t = title.getBoundingClientRect();
+      const u = subline.getBoundingClientRect();
       world.style.transform = prev;
       sw = s.width;
       sh = s.height;
+      // The dive heads for the empty band between the title and the line
+      // under it, centred on the copy: the title flies up and away, the line
+      // down, and the portal (the size of the i's dot) opens between them.
       r0 = d.width / 2 || 1;
-      ox = d.left + r0 - w.left;
-      oy = d.top + r0 - w.top;
+      ox = (t.left + t.right) / 2 - w.left;
+      oy = (t.bottom + u.top) / 2 - w.top;
       rx = w.left - s.left + ox;
       ry = w.top - s.top + oy;
-      // Big enough that the dot covers the stage's corners from its centre.
+      // Big enough that the portal, panned to the centre, covers the corners.
       maxZoom = (Math.hypot(sw, sh) / 2 / r0) * 1.08;
       world.style.transformOrigin = `${ox}px ${oy}px`;
     };
@@ -166,10 +173,12 @@ export default function MultitudesHero() {
     let shownFade = 1;
     let shownInside = -1;
     let shownClear = -1;
-    let shownHandedOff: boolean | null = null;
+    let shownPortal = "";
+    let shownVeilIn = "";
+    let shownVeilOut = "";
     const apply = () => {
       const zoom = Math.pow(maxZoom, cur);
-      // Glide the dot to the centre of the frame early in the dive.
+      // Glide that point to the centre of the frame early in the dive.
       const pan = smooth(clamp01(cur / 0.45));
       const px = (sw / 2 - rx) * pan;
       const py = (sh / 2 - ry) * pan;
@@ -183,19 +192,15 @@ export default function MultitudesHero() {
           el.style.visibility = clear > 0 ? "" : "hidden";
         }
       }
-      // The portal is the dot (same colour, centre and radius), so the hand-off
-      // is invisible. As it grows it hollows out from the centre into a thin
-      // ring, and the hero is masked away inside it to reveal the cosmos.
+      // The portal fades in at the centre as a small disk; as it grows it
+      // hollows out into a thin ring, and the hero is masked away inside it
+      // to reveal the cosmos.
       const x = rx + px;
       const y = ry + py;
       const r = r0 * zoom;
-      const hollow = smooth(clamp01((zoom - 5) / 30));
-      const handedOff = zoom > 3;
-      if (handedOff !== shownHandedOff) {
-        shownHandedOff = handedOff;
-        portal.style.opacity = handedOff ? "1" : "0";
-        dot.style.visibility = handedOff ? "hidden" : "";
-      }
+      const hollow = smooth(clamp01((zoom - 3) / 30));
+      const shown = clamp01((zoom - 1.4) / 1.6).toFixed(3);
+      if (shown !== shownPortal) portal.style.opacity = shownPortal = shown;
       // A bordered circle, drawn at a size that only steps every ~8% and scaled
       // to the exact radius on the compositor. Resizing it every frame meant
       // re-rastering a ring up to ~1800px across each frame (the late-dive lag);
@@ -210,6 +215,18 @@ export default function MultitudesHero() {
       const bw = `${border}px`;
       if (portal.style.borderWidth !== bw) portal.style.borderWidth = bw;
       portal.style.transform = `translate(${x - r}px, ${y - r}px) scale(${s})`;
+      // A hard-edged hole a few pixels wide reads as a black speck on the dot,
+      // so it opens under a paper veil that thins from the centre outwards:
+      // the cosmos glows through softly instead of punching a pinhole.
+      const veil = 1 - smooth(clamp01((zoom - 3) / 15));
+      const veilIn = `${(veil * veil * 100).toFixed(1)}%`;
+      const veilOut = `${(veil * 100).toFixed(1)}%`;
+      if (veilIn !== shownVeilIn || veilOut !== shownVeilOut) {
+        shownVeilIn = veilIn;
+        shownVeilOut = veilOut;
+        portal.style.setProperty("--veil-in", veilIn);
+        portal.style.setProperty("--veil-out", veilOut);
+      }
       // Past ~10x the title and orbits are only giant fragments sliding off
       // screen, yet rastering them at that size every frame stalled the dive
       // for 100-250ms. Fade the world out as it rushes past (like the cards;
@@ -247,11 +264,11 @@ export default function MultitudesHero() {
       world.style.visibility = "";
       shownFade = 1;
       shownClear = -1;
-      shownHandedOff = null;
-      dot.style.visibility = "";
+      shownPortal = "";
+      shownVeilIn = shownVeilOut = "";
       portal.style.opacity = "";
       scene.style.visibility = "";
-      for (const v of ["width", "height", "border-width", "transform"]) portal.style.removeProperty(v);
+      for (const v of ["width", "height", "border-width", "transform", "--veil-in", "--veil-out"]) portal.style.removeProperty(v);
       clipCosmos("");
       for (const el of outsideEls) el.style.removeProperty("opacity");
       shownInside = -1;
@@ -596,7 +613,7 @@ export default function MultitudesHero() {
         <div ref={portalRef} className="u-portal" aria-hidden />
         <div className="u-bottom">
           <span>
-            <span className="u-wheel" aria-hidden>↕</span> Scroll to dive into the i
+            <span className="u-wheel" aria-hidden>↕</span> Scroll to dive in
           </span>
           <div className="u-sites">{sites}</div>
           <span ref={readoutRef} className="u-readout" aria-hidden>
